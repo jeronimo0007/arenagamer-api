@@ -1,0 +1,90 @@
+spring:
+  application:
+    name: arenagamer-api
+
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/arenagamer?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: ${RABBITMQ_VHOST:/}
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 600000
+
+server:
+  port: ${SERVER_PORT:8080}
+
+# JWT
+jwt:
+  secret: ${JWT_SECRET:arenaGamerSecretKey2024SuperSecureKeyThatIsLongEnough256bits!!}
+  access-token-expiration: ${JWT_ACCESS_EXPIRATION:3600}
+  refresh-token-expiration: ${JWT_REFRESH_EXPIRATION:604800}
+
+# OpenAPI
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+
+# RabbitMQ Queues
+mq:
+  queue:
+    payment-processing: payment.processing.queue
+    bracket-generation: bracket.generation.queue
+    notification: notification.queue
+  exchange:
+    arenagamer: arenagamer.exchange
+  routing-key:
+    payment: payment.processing
+    bracket: bracket.generation
+    notification: notification.send
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    com.arenagamer: DEBUG
+    org.hibernate.SQL: WARN
