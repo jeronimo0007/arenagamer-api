@@ -3,9 +3,11 @@ package com.arenagamer.api.service;
 import com.arenagamer.api.entity.*;
 import com.arenagamer.api.entity.enums.MatchStatus;
 import com.arenagamer.api.entity.enums.TimeWindow;
+import com.arenagamer.api.entity.enums.UserRole;
 import com.arenagamer.api.exception.BusinessException;
 import com.arenagamer.api.repository.MatchRepository;
 import com.arenagamer.api.repository.TournamentRepository;
+import com.arenagamer.api.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +22,7 @@ public class SchedulingService {
 
     private final TournamentRepository tournamentRepository;
     private final MatchRepository matchRepository;
+    private final UserRepository userRepository;
 
     @Transactional
     public List<Match> scheduleMatches(String slug) {
@@ -60,6 +63,17 @@ public class SchedulingService {
         }
 
         return matchRepository.findByTournamentId(tournament.getId());
+    }
+
+    public void validateReschedulePermission(Long matchId, Long userId) {
+        Match match = matchRepository.findById(matchId)
+                .orElseThrow(() -> BusinessException.notFound("Partida não encontrada"));
+        Tournament tournament = match.getRound().getTournament();
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> BusinessException.notFound("Usuário não encontrado"));
+        if (!tournament.getOwner().getId().equals(userId) && user.getRole() != UserRole.ADMIN) {
+            throw BusinessException.forbidden("Sem permissão para reagendar");
+        }
     }
 
     @Transactional

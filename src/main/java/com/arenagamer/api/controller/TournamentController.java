@@ -123,6 +123,7 @@ public class TournamentController {
     @PostMapping("/{slug}/generate-bracket")
     @Operation(summary = "Gerar chaves do torneio")
     public ResponseEntity<ApiResponse<Void>> generateBracket(@PathVariable String slug) {
+        tournamentService.validateOwnership(slug, UserPrincipal.currentId());
         bracketService.generateBracket(slug);
         return ResponseEntity.ok(ApiResponse.ok("Chaves geradas com sucesso"));
     }
@@ -141,6 +142,7 @@ public class TournamentController {
     @PostMapping("/{slug}/schedule")
     @Operation(summary = "Agendar partidas automaticamente")
     public ResponseEntity<ApiResponse<List<MatchResponse>>> schedule(@PathVariable String slug) {
+        tournamentService.validateOwnership(slug, UserPrincipal.currentId());
         List<MatchResponse> matches = schedulingService.scheduleMatches(slug).stream()
                 .map(MatchResponse::from).toList();
         return ResponseEntity.ok(ApiResponse.ok("Partidas agendadas", matches));
@@ -150,6 +152,7 @@ public class TournamentController {
     @Operation(summary = "Reagendar partida")
     public ResponseEntity<ApiResponse<MatchResponse>> reschedule(
             @PathVariable Long matchId, @RequestParam LocalDateTime newTime) {
+        schedulingService.validateReschedulePermission(matchId, UserPrincipal.currentId());
         Match match = schedulingService.reschedule(matchId, newTime);
         return ResponseEntity.ok(ApiResponse.ok(MatchResponse.from(match)));
     }

@@ -126,14 +126,14 @@ public class TournamentService {
             throw BusinessException.badRequest("Torneio lotado");
         }
 
-        // Charge entry fee if applicable
-        if (tournament.getEntryFeeCredits().compareTo(BigDecimal.ZERO) > 0) {
-            walletService.holdCredits(userId, tournament.getEntryFeeCredits(), "ENTRY_FEE", tournament.getId());
-        }
-
         // Anti-fraud: owner cannot participate
         if (tournament.getOwner().getId().equals(userId)) {
             throw BusinessException.forbidden("Organizador não pode participar como jogador");
+        }
+
+        // Charge entry fee if applicable
+        if (tournament.getEntryFeeCredits().compareTo(BigDecimal.ZERO) > 0) {
+            walletService.holdCredits(userId, tournament.getEntryFeeCredits(), "ENTRY_FEE", tournament.getId());
         }
 
         User user = userRepository.findById(userId)
@@ -242,6 +242,11 @@ public class TournamentService {
         if (tournament.getStatus() != TournamentStatus.REGISTRATION_OPEN) {
             throw BusinessException.badRequest("Inscrições não estão abertas");
         }
+    }
+
+    public void validateOwnership(String slug, Long userId) {
+        Tournament tournament = getBySlug(slug);
+        validateOwnerOrAdmin(tournament, userId);
     }
 
     private void validateOwnerOrAdmin(Tournament tournament, Long userId) {

@@ -107,8 +107,8 @@ public class WalletService {
         Wallet wallet = walletRepository.findByUserIdForUpdate(userId)
                 .orElseThrow(() -> BusinessException.notFound("Carteira não encontrada"));
 
-        var holdTxs = transactionRepository.findByReferenceTypeAndReferenceIdAndStatus(
-                referenceType, referenceId, TransactionStatus.HELD);
+        var holdTxs = transactionRepository.findByWalletIdAndReferenceTypeAndReferenceIdAndStatus(
+                wallet.getId(), referenceType, referenceId, TransactionStatus.HELD);
 
         for (Transaction holdTx : holdTxs) {
             BigDecimal amount = holdTx.getAmount().negate();
@@ -142,8 +142,8 @@ public class WalletService {
         Wallet wallet = walletRepository.findByUserIdForUpdate(userId)
                 .orElseThrow(() -> BusinessException.notFound("Carteira não encontrada"));
 
-        var holdTxs = transactionRepository.findByReferenceTypeAndReferenceIdAndStatus(
-                referenceType, referenceId, TransactionStatus.HELD);
+        var holdTxs = transactionRepository.findByWalletIdAndReferenceTypeAndReferenceIdAndStatus(
+                wallet.getId(), referenceType, referenceId, TransactionStatus.HELD);
 
         for (Transaction holdTx : holdTxs) {
             BigDecimal amount = holdTx.getAmount().negate();

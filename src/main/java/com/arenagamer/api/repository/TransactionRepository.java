@@ -11,4 +11,5 @@ import java.util.List;
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
     Page<Transaction> findByWalletIdOrderByCreatedAtDesc(Long walletId, Pageable pageable);
     List<Transaction> findByReferenceTypeAndReferenceIdAndStatus(String referenceType, Long referenceId, TransactionStatus status);
+    List<Transaction> findByWalletIdAndReferenceTypeAndReferenceIdAndStatus(Long walletId, String referenceType, Long referenceId, TransactionStatus status);
 }

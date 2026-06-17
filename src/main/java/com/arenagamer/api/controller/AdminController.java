@@ -1,6 +1,8 @@
 package com.arenagamer.api.controller;
 
 import com.arenagamer.api.dto.response.ApiResponse;
+import com.arenagamer.api.dto.response.TournamentResponse;
+import com.arenagamer.api.dto.response.UserResponse;
 import com.arenagamer.api.entity.*;
 import com.arenagamer.api.repository.*;
 import io.swagger.v3.oas.annotations.Operation;
@@ -45,7 +47,7 @@ public class AdminController {
 
     @GetMapping("/presets")
     @Operation(summary = "Listar presets de jogos")
-    @Cacheable("presets")
+    @Cacheable("adminPresets")
     public ResponseEntity<ApiResponse<List<Preset>>> listPresets() {
         return ResponseEntity.ok(ApiResponse.ok(presetRepository.findAll()));
     }
@@ -58,13 +60,15 @@ public class AdminController {
 
     @GetMapping("/tournaments")
     @Operation(summary = "Listar todos os torneios")
-    public ResponseEntity<ApiResponse<Page<Tournament>>> listAllTournaments(Pageable pageable) {
-        return ResponseEntity.ok(ApiResponse.ok(tournamentRepository.findAll(pageable)));
+    public ResponseEntity<ApiResponse<Page<TournamentResponse>>> listAllTournaments(Pageable pageable) {
+        Page<TournamentResponse> page = tournamentRepository.findAll(pageable).map(TournamentResponse::from);
+        return ResponseEntity.ok(ApiResponse.ok(page));
     }
 
     @GetMapping("/users")
     @Operation(summary = "Listar todos os usuários")
-    public ResponseEntity<ApiResponse<Page<User>>> listAllUsers(Pageable pageable) {
-        return ResponseEntity.ok(ApiResponse.ok(userRepository.findAll(pageable)));
+    public ResponseEntity<ApiResponse<Page<UserResponse>>> listAllUsers(Pageable pageable) {
+        Page<UserResponse> page = userRepository.findAll(pageable).map(UserResponse::from);
+        return ResponseEntity.ok(ApiResponse.ok(page));
     }
 }
