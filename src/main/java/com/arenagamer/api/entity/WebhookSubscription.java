@@ -1,5 +1,6 @@
 package com.arenagamer.api.entity;
 
+import com.arenagamer.api.entity.enums.AuthUserType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,7 +10,9 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "webhook_subscriptions")
+@Table(name = "tblwebhook_subscriptions", indexes = {
+    @Index(name = "idx_webhook_owner", columnList = "owner_type, owner_id")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -20,9 +23,12 @@ public class WebhookSubscription {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "owner_type", nullable = false, length = 10)
+    private AuthUserType ownerType;
+
+    @Column(name = "owner_id", nullable = false)
+    private Long ownerId;
 
     @Column(nullable = false)
     private String url;

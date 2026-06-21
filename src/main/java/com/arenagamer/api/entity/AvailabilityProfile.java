@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Set;
 
 @Entity
-@Table(name = "availability_profiles")
+@Table(name = "tblavailability_profiles")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -26,15 +26,15 @@ public class AvailabilityProfile {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    private User user;
+    @JoinColumn(name = "contact_id")
+    private Contact contact;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "team_id")
     private Team team;
 
     @ElementCollection(targetClass = TimeWindow.class, fetch = FetchType.EAGER)
-    @CollectionTable(name = "availability_time_windows",
+    @CollectionTable(name = "tblavailability_time_windows",
         joinColumns = @JoinColumn(name = "profile_id"))
     @Enumerated(EnumType.STRING)
     @Column(name = "time_window")

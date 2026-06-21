@@ -25,6 +25,7 @@ spring:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
+    baseline-version: 1
 
   data:
     redis:
@@ -60,6 +61,7 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
     operations-sorter: method
+    urls-primary-name: Todos
 
 # RabbitMQ Queues
 mq:
@@ -85,6 +87,10 @@ management:
       show-details: when-authorized
 
 logging:
+  pattern:
+    console: "%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"
   level:
+    root: INFO
     com.arenagamer: DEBUG
+    org.springframework.web: INFO
     org.hibernate.SQL: WARN

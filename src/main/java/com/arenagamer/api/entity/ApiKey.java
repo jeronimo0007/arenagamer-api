@@ -1,5 +1,6 @@
 package com.arenagamer.api.entity;
 
+import com.arenagamer.api.entity.enums.AuthUserType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,8 +10,9 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "api_keys", indexes = {
-    @Index(name = "idx_api_keys_key", columnList = "api_key", unique = true)
+@Table(name = "tblapi_keys", indexes = {
+    @Index(name = "idx_api_keys_key", columnList = "api_key", unique = true),
+    @Index(name = "idx_api_keys_owner", columnList = "owner_type, owner_id")
 })
 @Data
 @NoArgsConstructor
@@ -22,9 +24,12 @@ public class ApiKey {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "owner_type", nullable = false, length = 10)
+    private AuthUserType ownerType;
+
+    @Column(name = "owner_id", nullable = false)
+    private Long ownerId;
 
     @Column(name = "api_key", nullable = false, unique = true, length = 64)
     private String key;

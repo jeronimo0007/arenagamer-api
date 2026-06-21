@@ -1,10 +1,17 @@
 package com.arenagamer.api.service;
 
+import com.arenagamer.api.dto.response.AdminClientWalletResponse;
+import com.arenagamer.api.dto.response.AdminWalletTransactionResponse;
+import com.arenagamer.api.dto.response.ClientWalletResponse;
+import com.arenagamer.api.entity.Client;
+import com.arenagamer.api.entity.Contact;
 import com.arenagamer.api.entity.Transaction;
 import com.arenagamer.api.entity.Wallet;
 import com.arenagamer.api.entity.enums.TransactionStatus;
 import com.arenagamer.api.entity.enums.TransactionType;
 import com.arenagamer.api.exception.BusinessException;
+import com.arenagamer.api.repository.ClientRepository;
+import com.arenagamer.api.repository.ContactRepository;
 import com.arenagamer.api.repository.TransactionRepository;
 import com.arenagamer.api.repository.WalletRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,65 +28,64 @@ public class WalletService {
 
     private final WalletRepository walletRepository;
     private final TransactionRepository transactionRepository;
+    private final ContactRepository contactRepository;
+    private final ClientRepository clientRepository;
+    private final WalletAccessService walletAccessService;
+    private final AuditService auditService;
 
-    public Wallet getWallet(Long userId) {
-        return walletRepository.findByUserId(userId)
+    public ClientWalletResponse getClientWalletForContact(Contact contact) {
+        walletAccessService.requireViewWallet(contact);
+        Wallet wallet = getOrCreateWallet(contact.getUserid());
+        return ClientWalletResponse.from(wallet, contact, walletAccessService);
+    }
+
+    public Wallet getWalletByClientUserId(Integer clientUserId) {
+        return walletRepository.findByClient_UserId(clientUserId)
                 .orElseThrow(() -> BusinessException.notFound("Carteira não encontrada"));
     }
 
-    @Transactional
-    public Transaction deposit(Long userId, BigDecimal amount, String description) {
-        Wallet wallet = walletRepository.findByUserIdForUpdate(userId)
-                .orElseThrow(() -> BusinessException.notFound("Carteira não encontrada"));
-
-        BigDecimal balanceBefore = wallet.getBalance();
-        wallet.setBalance(balanceBefore.add(amount));
-        walletRepository.save(wallet);
-
-        Transaction tx = Transaction.builder()
-                .wallet(wallet)
-                .amount(amount)
-                .type(TransactionType.DEPOSIT)
-                .status(TransactionStatus.COMPLETED)
-                .description(description)
-                .balanceBefore(balanceBefore)
-                .balanceAfter(wallet.getBalance())
-                .build();
-
-        return transactionRepository.save(tx);
-    }
-
-    @Transactional
-    public Transaction withdraw(Long userId, BigDecimal amount, String description) {
-        Wallet wallet = walletRepository.findByUserIdForUpdate(userId)
-                .orElseThrow(() -> BusinessException.notFound("Carteira não encontrada"));
-
-        if (wallet.getAvailableBalance().compareTo(amount) < 0) {
-            throw BusinessException.badRequest("Saldo insuficiente");
+    /**
+     * Valida saldo disponível antes de reservar créditos (criação de torneio, etc.).
+     */
+    public void requireAvailableBalance(Integer clientUserId, BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
         }
 
-        BigDecimal balanceBefore = wallet.getBalance();
-        wallet.setBalance(balanceBefore.subtract(amount));
-        walletRepository.save(wallet);
-
-        Transaction tx = Transaction.builder()
-                .wallet(wallet)
-                .amount(amount.negate())
-                .type(TransactionType.WITHDRAWAL)
-                .status(TransactionStatus.COMPLETED)
-                .description(description)
-                .balanceBefore(balanceBefore)
-                .balanceAfter(wallet.getBalance())
-                .build();
-
-        return transactionRepository.save(tx);
+        Wallet wallet = getOrCreateWallet(clientUserId);
+        if (wallet.getAvailableBalance().compareTo(amount) < 0) {
+            throw BusinessException.badRequest(
+                    "Saldo insuficiente. Necessário "
+                            + amount.stripTrailingZeros().toPlainString()
+                            + " créditos, disponível "
+                            + wallet.getAvailableBalance().stripTrailingZeros().toPlainString()
+                            + " créditos.");
+        }
     }
 
     @Transactional
-    public Transaction holdCredits(Long userId, BigDecimal amount, String referenceType, Long referenceId) {
-        Wallet wallet = walletRepository.findByUserIdForUpdate(userId)
-                .orElseThrow(() -> BusinessException.notFound("Carteira não encontrada"));
+    public Transaction depositForContact(Contact contact, BigDecimal amount, String description) {
+        walletAccessService.requireUseWallet(contact);
+        return deposit(contact.getUserid(), contact, amount, description);
+    }
 
+    @Transactional
+    public Transaction withdrawForContact(Contact contact, BigDecimal amount, String description) {
+        walletAccessService.requireUseWallet(contact);
+        return withdraw(contact.getUserid(), contact, amount, description);
+    }
+
+    @Transactional
+    public Transaction holdCredits(Integer clientUserId, Contact performedBy, BigDecimal amount,
+                                   String referenceType, Long referenceId) {
+        if (performedBy != null) {
+            walletAccessService.requireUseWallet(performedBy);
+            if (!clientUserId.equals(performedBy.getUserid())) {
+                throw BusinessException.forbidden("Créditos pertencem a outro cliente");
+            }
+        }
+
+        Wallet wallet = getWalletForUpdate(clientUserId);
         if (wallet.getAvailableBalance().compareTo(amount) < 0) {
             throw BusinessException.badRequest("Saldo insuficiente para reserva");
         }
@@ -89,6 +95,7 @@ public class WalletService {
 
         Transaction tx = Transaction.builder()
                 .wallet(wallet)
+                .performedBy(performedBy)
                 .amount(amount.negate())
                 .type(TransactionType.HOLD)
                 .status(TransactionStatus.HELD)
@@ -103,12 +110,10 @@ public class WalletService {
     }
 
     @Transactional
-    public void captureHold(Long userId, String referenceType, Long referenceId) {
-        Wallet wallet = walletRepository.findByUserIdForUpdate(userId)
-                .orElseThrow(() -> BusinessException.notFound("Carteira não encontrada"));
-
-        var holdTxs = transactionRepository.findByReferenceTypeAndReferenceIdAndStatus(
-                referenceType, referenceId, TransactionStatus.HELD);
+    public void captureHold(Integer clientUserId, String referenceType, Long referenceId) {
+        Wallet wallet = getWalletForUpdate(clientUserId);
+        var holdTxs = transactionRepository.findByWalletIdAndReferenceTypeAndReferenceIdAndStatus(
+                wallet.getId(), referenceType, referenceId, TransactionStatus.HELD);
 
         for (Transaction holdTx : holdTxs) {
             BigDecimal amount = holdTx.getAmount().negate();
@@ -122,6 +127,7 @@ public class WalletService {
 
             Transaction captureTx = Transaction.builder()
                     .wallet(wallet)
+                    .performedBy(holdTx.getPerformedBy())
                     .amount(amount.negate())
                     .type(TransactionType.HOLD_CAPTURE)
                     .status(TransactionStatus.COMPLETED)
@@ -138,12 +144,10 @@ public class WalletService {
     }
 
     @Transactional
-    public void releaseHold(Long userId, String referenceType, Long referenceId) {
-        Wallet wallet = walletRepository.findByUserIdForUpdate(userId)
-                .orElseThrow(() -> BusinessException.notFound("Carteira não encontrada"));
-
-        var holdTxs = transactionRepository.findByReferenceTypeAndReferenceIdAndStatus(
-                referenceType, referenceId, TransactionStatus.HELD);
+    public void releaseHold(Integer clientUserId, String referenceType, Long referenceId) {
+        Wallet wallet = getWalletForUpdate(clientUserId);
+        var holdTxs = transactionRepository.findByWalletIdAndReferenceTypeAndReferenceIdAndStatus(
+                wallet.getId(), referenceType, referenceId, TransactionStatus.HELD);
 
         for (Transaction holdTx : holdTxs) {
             BigDecimal amount = holdTx.getAmount().negate();
@@ -154,6 +158,7 @@ public class WalletService {
 
             Transaction releaseTx = Transaction.builder()
                     .wallet(wallet)
+                    .performedBy(holdTx.getPerformedBy())
                     .amount(amount)
                     .type(TransactionType.HOLD_RELEASE)
                     .status(TransactionStatus.COMPLETED)
@@ -169,8 +174,122 @@ public class WalletService {
         walletRepository.save(wallet);
     }
 
-    public Page<Transaction> getTransactions(Long userId, Pageable pageable) {
-        Wallet wallet = getWallet(userId);
+    public Page<Transaction> getTransactionsForContact(Contact contact, Pageable pageable) {
+        walletAccessService.requireViewWallet(contact);
+        Wallet wallet = getOrCreateWallet(contact.getUserid());
         return transactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.getId(), pageable);
+    }
+
+    public AdminClientWalletResponse getAdminClientWallet(Integer clientUserId) {
+        Client client = clientRepository.findById(clientUserId)
+                .orElseThrow(() -> BusinessException.notFound("Cliente não encontrado"));
+        Wallet wallet = walletRepository.findByClient_UserId(clientUserId).orElse(null);
+        return AdminClientWalletResponse.from(client, wallet);
+    }
+
+    public Page<AdminWalletTransactionResponse> getClientTransactions(Integer clientUserId, Pageable pageable) {
+        return transactionRepository.findByClientUserId(clientUserId, pageable)
+                .map(AdminWalletTransactionResponse::from);
+    }
+
+    @Transactional
+    public Transaction adminDeposit(Integer clientUserId, BigDecimal amount, String description) {
+        Client client = clientRepository.findById(clientUserId)
+                .orElseThrow(() -> BusinessException.notFound("Cliente não encontrado"));
+        ensureWalletExists(client);
+        String finalDescription = normalizeStaffDescription(description, "Créditos adicionados pelo staff");
+        Transaction tx = deposit(clientUserId, null, amount, finalDescription);
+        auditService.recordStaffMessage("DEPOSIT", "wallet", clientUserId.longValue(),
+                "Créditos adicionados: " + amount);
+        return tx;
+    }
+
+    @Transactional
+    public Transaction adminWithdraw(Integer clientUserId, BigDecimal amount, String description) {
+        clientRepository.findById(clientUserId)
+                .orElseThrow(() -> BusinessException.notFound("Cliente não encontrado"));
+        String finalDescription = normalizeStaffDescription(description, "Créditos removidos pelo staff");
+        Transaction tx = withdraw(clientUserId, null, amount, finalDescription);
+        auditService.recordStaffMessage("WITHDRAW", "wallet", clientUserId.longValue(),
+                "Créditos removidos: " + amount);
+        return tx;
+    }
+
+    @Transactional
+    public Transaction deposit(Integer clientUserId, Contact performedBy, BigDecimal amount, String description) {
+        Wallet wallet = getWalletForUpdate(clientUserId);
+        BigDecimal balanceBefore = wallet.getBalance();
+        wallet.setBalance(balanceBefore.add(amount));
+        walletRepository.save(wallet);
+
+        Transaction tx = Transaction.builder()
+                .wallet(wallet)
+                .performedBy(performedBy)
+                .amount(amount)
+                .type(TransactionType.DEPOSIT)
+                .status(TransactionStatus.COMPLETED)
+                .description(description)
+                .balanceBefore(balanceBefore)
+                .balanceAfter(wallet.getBalance())
+                .build();
+
+        return transactionRepository.save(tx);
+    }
+
+    @Transactional
+    public Transaction withdraw(Integer clientUserId, Contact performedBy, BigDecimal amount, String description) {
+        Wallet wallet = getWalletForUpdate(clientUserId);
+        if (wallet.getAvailableBalance().compareTo(amount) < 0) {
+            throw BusinessException.badRequest("Saldo insuficiente");
+        }
+
+        BigDecimal balanceBefore = wallet.getBalance();
+        wallet.setBalance(balanceBefore.subtract(amount));
+        walletRepository.save(wallet);
+
+        Transaction tx = Transaction.builder()
+                .wallet(wallet)
+                .performedBy(performedBy)
+                .amount(amount.negate())
+                .type(TransactionType.WITHDRAWAL)
+                .status(TransactionStatus.COMPLETED)
+                .description(description)
+                .balanceBefore(balanceBefore)
+                .balanceAfter(wallet.getBalance())
+                .build();
+
+        return transactionRepository.save(tx);
+    }
+
+    private Wallet getOrCreateWallet(Integer clientUserId) {
+        return walletRepository.findByClient_UserId(clientUserId)
+                .orElseGet(() -> {
+                    Client client = clientRepository.findById(clientUserId)
+                            .orElseThrow(() -> BusinessException.notFound("Cliente não encontrado"));
+                    return ensureWalletExists(client);
+                });
+    }
+
+    private Wallet getWalletForUpdate(Integer clientUserId) {
+        return walletRepository.findByClientUserIdForUpdate(clientUserId)
+                .orElseGet(() -> {
+                    Client client = clientRepository.findById(clientUserId)
+                            .orElseThrow(() -> BusinessException.notFound("Cliente não encontrado"));
+                    ensureWalletExists(client);
+                    return walletRepository.findByClientUserIdForUpdate(clientUserId)
+                            .orElseThrow(() -> BusinessException.notFound("Carteira não encontrada"));
+                });
+    }
+
+    private Wallet ensureWalletExists(Client client) {
+        return walletRepository.findByClient_UserId(client.getUserId())
+                .orElseGet(() -> walletRepository.save(Wallet.builder().client(client).build()));
+    }
+
+    private String normalizeStaffDescription(String description, String fallback) {
+        if (description == null || description.isBlank()) {
+            return fallback;
+        }
+        return description.trim();
     }
 }

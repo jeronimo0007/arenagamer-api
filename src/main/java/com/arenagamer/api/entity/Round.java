@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "rounds", indexes = {
+@Table(name = "tblrounds", indexes = {
     @Index(name = "idx_rounds_tournament", columnList = "tournament_id")
 })
 @Data

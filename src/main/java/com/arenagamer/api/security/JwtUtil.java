@@ -1,6 +1,6 @@
 package com.arenagamer.api.security;
 
-import com.arenagamer.api.entity.User;
+import com.arenagamer.api.entity.enums.AuthUserType;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
@@ -11,6 +11,7 @@ import javax.crypto.SecretKey;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @Component
 public class JwtUtil {
@@ -28,20 +29,30 @@ public class JwtUtil {
         return Keys.hmacShaKeyFor(secret.getBytes());
     }
 
-    public String generateAccessToken(User user) {
+    public String generateAccessToken(AuthenticatedUser user) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", user.getId());
+        claims.put("userType", user.getType().name());
         claims.put("email", user.getEmail());
         claims.put("role", user.getRole().name());
         claims.put("type", "access");
+        if (user.getClientUserId() != null) {
+            claims.put("clientUserId", user.getClientUserId());
+        }
         return buildToken(claims, accessTokenExpiration);
     }
 
-    public String generateRefreshToken(User user) {
+    public String generateRefreshToken(AuthenticatedUser user) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", user.getId());
+        claims.put("userType", user.getType().name());
         claims.put("type", "refresh");
+        claims.put("jti", UUID.randomUUID().toString());
         return buildToken(claims, refreshTokenExpiration);
+    }
+
+    public Long getRefreshTokenExpiration() {
+        return refreshTokenExpiration;
     }
 
     private String buildToken(Map<String, Object> claims, Long expirationSeconds) {
@@ -63,6 +74,10 @@ public class JwtUtil {
 
     public Long extractUserId(String token) {
         return extractClaims(token).get("userId", Long.class);
+    }
+
+    public AuthUserType extractUserType(String token) {
+        return AuthUserType.valueOf(extractClaims(token).get("userType", String.class));
     }
 
     public String extractTokenType(String token) {

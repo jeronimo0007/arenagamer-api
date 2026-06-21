@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "oauth_clients")
+@Table(name = "tblarena_oauth_clients")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

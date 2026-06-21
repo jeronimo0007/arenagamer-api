@@ -11,7 +11,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "matches", indexes = {
+@Table(name = "tblmatches", indexes = {
     @Index(name = "idx_matches_round", columnList = "round_id"),
     @Index(name = "idx_matches_scheduled", columnList = "scheduled_at")
 })

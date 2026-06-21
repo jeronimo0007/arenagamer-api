@@ -10,8 +10,8 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "wallets", indexes = {
-    @Index(name = "idx_wallets_user_id", columnList = "user_id", unique = true)
+@Table(name = "tblwallets", indexes = {
+    @Index(name = "idx_wallets_client_userid", columnList = "client_userid", unique = true)
 })
 @Data
 @NoArgsConstructor
@@ -24,8 +24,8 @@ public class Wallet {
     private Long id;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false, unique = true)
-    private User user;
+    @JoinColumn(name = "client_userid", referencedColumnName = "userid", nullable = false, unique = true)
+    private Client client;
 
     @Column(nullable = false, precision = 15, scale = 2)
     @Builder.Default

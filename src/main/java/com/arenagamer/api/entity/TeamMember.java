@@ -9,11 +9,11 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "team_members", indexes = {
+@Table(name = "tblteam_members", indexes = {
     @Index(name = "idx_team_members_team", columnList = "team_id"),
-    @Index(name = "idx_team_members_user", columnList = "user_id")
+    @Index(name = "idx_team_members_contact", columnList = "contact_id")
 }, uniqueConstraints = {
-    @UniqueConstraint(name = "uk_team_member", columnNames = {"team_id", "user_id"})
+    @UniqueConstraint(name = "uk_team_member", columnNames = {"team_id", "contact_id"})
 })
 @Data
 @NoArgsConstructor
@@ -30,8 +30,8 @@ public class TeamMember {
     private Team team;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "contact_id", nullable = false)
+    private Contact contact;
 
     @Column(length = 50)
     private String position;

@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "clients")
+@Table(name = "tblclients")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -18,35 +18,48 @@ public class Client {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "userid")
+    private Integer userId;
 
-    @Column(nullable = false, length = 200)
+    @Column(length = 191)
     private String company;
 
-    @Column(name = "phone_number", length = 30)
-    private String phoneNumber;
+    @Column(length = 30)
+    private String phonenumber;
 
     @Column(length = 100)
     private String city;
 
-    @Column(length = 5)
+    @Column(length = 50)
     private String state;
 
-    @Column(length = 255)
+    @Column(length = 191)
     private String address;
 
-    @Column(name = "perfex_client_id")
-    private Long perfexClientId;
-
-    @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
+    @Column(nullable = false)
     @Builder.Default
-    private Boolean active = true;
+    private Integer country = 0;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer active = 1;
 
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-    }
+    @Column(name = "datecreated", nullable = false)
+    private LocalDateTime datecreated;
+
+    @Column(name = "default_currency", nullable = false)
+    @Builder.Default
+    private Integer defaultCurrency = 0;
+
+    @Column(name = "show_primary_contact", nullable = false)
+    @Builder.Default
+    private Integer showPrimaryContact = 0;
+
+    @Column(name = "registration_confirmed", nullable = false)
+    @Builder.Default
+    private Integer registrationConfirmed = 1;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Integer addedfrom = 0;
 }

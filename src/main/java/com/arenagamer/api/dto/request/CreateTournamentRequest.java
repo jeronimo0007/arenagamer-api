@@ -16,6 +16,9 @@ public class CreateTournamentRequest {
     @NotBlank @Size(max = 200)
     private String name;
 
+    @Size(max = 100)
+    private String gameName;
+
     private String description;
 
     @NotNull
@@ -32,6 +35,9 @@ public class CreateTournamentRequest {
     private Integer minParticipants;
 
     private Long presetId;
+
+    /** Opcional. Apenas staff pode informar o cliente dono do torneio. */
+    private Integer clientUserId;
 
     private BigDecimal entryFeeCredits;
 
@@ -54,4 +60,23 @@ public class CreateTournamentRequest {
     private LocalDateTime startDate;
 
     private LocalDateTime registrationDeadline;
+
+    private LocalDateTime registrationOpensAt;
+
+    private LocalDateTime expectedEndDate;
+
+    @Size(max = 500)
+    private String gameImageUrl;
+
+    @Size(max = 500)
+    private String coverImageUrl;
+
+    @Size(max = 500)
+    private String logoImageUrl;
+
+    @Size(max = 500)
+    private String youtubeUrl;
+
+    @Size(max = 500)
+    private String twitchUrl;
 }

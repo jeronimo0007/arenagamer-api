@@ -11,11 +11,12 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "tournaments", indexes = {
+@Table(name = "tbltournaments", indexes = {
     @Index(name = "idx_tournaments_slug", columnList = "slug", unique = true),
-    @Index(name = "idx_tournaments_owner", columnList = "owner_id"),
+    @Index(name = "idx_tournaments_owner", columnList = "owner_type, owner_id"),
     @Index(name = "idx_tournaments_status", columnList = "status"),
-    @Index(name = "idx_tournaments_visibility", columnList = "visibility")
+    @Index(name = "idx_tournaments_visibility", columnList = "visibility"),
+    @Index(name = "idx_tournaments_client", columnList = "client_userid")
 })
 @Data
 @NoArgsConstructor
@@ -33,15 +34,21 @@ public class Tournament {
     @Column(nullable = false, length = 200)
     private String name;
 
+    @Column(name = "game_name", length = 100)
+    private String gameName;
+
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "owner_id", nullable = false)
-    private User owner;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "owner_type", nullable = false, length = 10)
+    private AuthUserType ownerType;
+
+    @Column(name = "owner_id", nullable = false)
+    private Long ownerId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "client_id")
+    @JoinColumn(name = "client_userid", referencedColumnName = "userid")
     private Client client;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -113,6 +120,27 @@ public class Tournament {
 
     @Column(name = "registration_deadline")
     private LocalDateTime registrationDeadline;
+
+    @Column(name = "registration_opens_at")
+    private LocalDateTime registrationOpensAt;
+
+    @Column(name = "expected_end_date")
+    private LocalDateTime expectedEndDate;
+
+    @Column(name = "game_image_url", length = 500)
+    private String gameImageUrl;
+
+    @Column(name = "cover_image_url", length = 500)
+    private String coverImageUrl;
+
+    @Column(name = "logo_image_url", length = 500)
+    private String logoImageUrl;
+
+    @Column(name = "youtube_url", length = 500)
+    private String youtubeUrl;
+
+    @Column(name = "twitch_url", length = 500)
+    private String twitchUrl;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

@@ -1,5 +1,6 @@
 package com.arenagamer.api.entity;
 
+import com.arenagamer.api.entity.enums.AuthUserType;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,8 +10,8 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "audit_logs", indexes = {
-    @Index(name = "idx_audit_user", columnList = "user_id"),
+@Table(name = "tblaudit_logs", indexes = {
+    @Index(name = "idx_audit_actor", columnList = "actor_type, actor_id"),
     @Index(name = "idx_audit_entity", columnList = "entity_type, entity_id"),
     @Index(name = "idx_audit_created", columnList = "created_at")
 })
@@ -24,8 +25,12 @@ public class AuditLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "user_id")
-    private Long userId;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "actor_type", length = 10)
+    private AuthUserType actorType;
+
+    @Column(name = "actor_id")
+    private Long actorId;
 
     @Column(nullable = false, length = 50)
     private String action;

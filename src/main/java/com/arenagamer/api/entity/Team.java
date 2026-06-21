@@ -11,8 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
-@Table(name = "teams", indexes = {
-    @Index(name = "idx_teams_owner", columnList = "owner_id")
+@Table(name = "tblteams", indexes = {
+    @Index(name = "idx_teams_owner", columnList = "owner_contact_id")
 })
 @Data
 @NoArgsConstructor
@@ -33,9 +33,24 @@ public class Team {
     @Column(name = "logo_url")
     private String logoUrl;
 
+    @Column(name = "youtube_url", length = 500)
+    private String youtubeUrl;
+
+    @Column(name = "instagram_url", length = 500)
+    private String instagramUrl;
+
+    @Column(name = "twitch_url", length = 500)
+    private String twitchUrl;
+
+    @Column(name = "other_social_url", length = 500)
+    private String otherSocialUrl;
+
+    @Column(name = "rules_change", columnDefinition = "TEXT")
+    private String rulesChange;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "owner_id", nullable = false)
-    private User owner;
+    @JoinColumn(name = "owner_contact_id", nullable = false)
+    private Contact owner;
 
     @OneToMany(mappedBy = "team", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default

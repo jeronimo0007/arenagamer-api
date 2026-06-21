@@ -9,8 +9,8 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "user_subscriptions", indexes = {
-    @Index(name = "idx_subscriptions_user", columnList = "user_id")
+@Table(name = "tbluser_subscriptions", indexes = {
+    @Index(name = "idx_subscriptions_client", columnList = "client_user_id")
 })
 @Data
 @NoArgsConstructor
@@ -23,12 +23,16 @@ public class UserSubscription {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @JoinColumn(name = "client_user_id", referencedColumnName = "userid", nullable = false)
+    private Client client;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "plan_id", nullable = false)
     private Plan plan;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pending_plan_id")
+    private Plan pendingPlan;
 
     @Column(name = "starts_at", nullable = false)
     private LocalDateTime startsAt;
@@ -40,9 +44,24 @@ public class UserSubscription {
     @Builder.Default
     private Integer tournamentsUsedThisMonth = 0;
 
+    @Column(name = "tournaments_usage_month", length = 7)
+    private String tournamentsUsageMonth;
+
+    @Column(name = "tournaments_usage_baseline")
+    @Builder.Default
+    private Integer tournamentsUsageBaseline = 0;
+
     @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
     @Builder.Default
     private Boolean active = true;
+
+    @Column(name = "cancel_at_period_end", columnDefinition = "BOOLEAN DEFAULT FALSE")
+    @Builder.Default
+    private Boolean cancelAtPeriodEnd = false;
+
+    @Column(name = "billing_period_months", nullable = false)
+    @Builder.Default
+    private Integer billingPeriodMonths = 1;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

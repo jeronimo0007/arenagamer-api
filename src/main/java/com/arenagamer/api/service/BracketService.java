@@ -4,6 +4,8 @@ import com.arenagamer.api.entity.*;
 import com.arenagamer.api.entity.enums.*;
 import com.arenagamer.api.exception.BusinessException;
 import com.arenagamer.api.repository.*;
+import com.arenagamer.api.security.AuthenticatedUser;
+import com.arenagamer.api.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +24,7 @@ public class BracketService {
     private final MatchRepository matchRepository;
     private final BracketSeedRepository bracketSeedRepository;
     private final GroupStandingRepository groupStandingRepository;
+    private final AuditService auditService;
 
     @Transactional
     public void generateBracket(String slug) {
@@ -54,6 +57,11 @@ public class BracketService {
 
         tournament.setStatus(TournamentStatus.IN_PROGRESS);
         tournamentRepository.save(tournament);
+
+        UserPrincipal.tryCurrent()
+                .filter(AuthenticatedUser::isStaff)
+                .ifPresent(auth -> auditService.recordStaffMessage(auth, "GENERATE_BRACKET", "tournament",
+                        tournament.getId(), "Chaves geradas: " + slug));
     }
 
     private void generateSingleElimination(Tournament tournament, List<TournamentParticipant> participants) {

@@ -17,11 +17,25 @@ Plataforma de gerenciamento de torneios de e-sports e jogos competitivos.
 
 ### Com Docker Compose
 
+1. **Configure o banco externo** (MySQL 8) e crie o database:
+```bash
+mysql -u root -e "CREATE DATABASE IF NOT EXISTS arenagamer"
+```
+
+2. **Configure as variáveis de ambiente**:
+```bash
+cp env.example .env
+# Edite .env com host, usuário e senha do seu banco externo
+```
+
+3. **Suba os serviços**:
 ```bash
 docker compose up -d
 ```
 
-Isso sobe MySQL, Redis, RabbitMQ e a aplicação na porta `8080`.
+Isso sobe Redis, RabbitMQ e a aplicação na porta `8080`. O MySQL **não** roda em Docker — a app conecta no banco definido em `DB_URL` no `.env`.
+
+> **Dica**: se o MySQL estiver na mesma máquina que o Docker, use `host.docker.internal` como host na `DB_URL` (já é o padrão no `env.example`).
 
 ### Desenvolvimento Local
 
@@ -58,67 +72,72 @@ src/main/java/com/arenagamer/api/
 └── service/         # Business logic
 ```
 
-## Endpoints Principais
+## Endpoints
 
-### Auth (`/api/v1/auth`)
+A API está organizada em três prefixos:
+
+| Prefixo | Auth | Público |
+|---------|------|---------|
+| `/api/v1/public` | Sem auth (auth) ou Basic (catálogo) | Leitura e login |
+| `/api/v1/common` | JWT Bearer | Staff e clientes |
+| `/api/v1/admin` | JWT Bearer (staff) | Painel administrativo |
+
+### Public (`/api/v1/public`)
+
+**Sem autenticação:**
 | Method | Path | Descrição |
 |--------|------|-----------|
-| POST | `/register` | Registro |
-| POST | `/login` | Login |
-| POST | `/refresh` | Renovar token |
-| POST | `/logout` | Logout |
+| POST | `/auth/register` | Registro |
+| POST | `/auth/login` | Login |
+| POST | `/auth/refresh` | Renovar token |
 
-### Users (`/api/v1/users`)
+**HTTP Basic Auth:**
 | Method | Path | Descrição |
 |--------|------|-----------|
-| GET | `/me` | Perfil |
-| PUT | `/me` | Atualizar perfil |
-| DELETE | `/me` | Desativar conta |
-
-### Wallet (`/api/v1/wallet`)
-| Method | Path | Descrição |
-|--------|------|-----------|
-| GET | `/balance` | Saldo |
-| POST | `/deposit` | Depositar |
-| POST | `/withdraw` | Sacar |
-| GET | `/transactions` | Histórico |
-
-### Tournaments (`/api/v1/tournaments`)
-| Method | Path | Descrição |
-|--------|------|-----------|
-| POST | `/` | Criar torneio |
-| GET | `/` | Listar públicos |
-| GET | `/my-created` | Meus criados |
-| GET | `/my-joined` | Meus inscritos |
-| GET | `/{slug}` | Detalhes |
-| PUT | `/{slug}/status` | Atualizar status |
-| DELETE | `/{slug}` | Cancelar |
-| POST | `/{slug}/participants` | Inscrever (solo) |
-| POST | `/{slug}/participants/team` | Inscrever time |
-| DELETE | `/{slug}/participants/{id}` | Expulsar |
-| POST | `/{slug}/generate-bracket` | Gerar chaves |
-| GET | `/{slug}/matches` | Listar partidas |
-| POST | `/{slug}/schedule` | Agendar partidas |
-
-### Teams (`/api/v1/teams`)
-| Method | Path | Descrição |
-|--------|------|-----------|
-| POST | `/` | Criar time |
-| GET | `/{id}` | Detalhes |
-| GET | `/my` | Meus times |
-| POST | `/{id}/members/{userId}` | Adicionar membro |
-| DELETE | `/{id}/members/{userId}` | Remover membro |
-| POST | `/{id}/transfer/{newOwnerId}` | Transferir liderança |
-
-### Admin (`/api/v1/admin`) — requer role ADMIN
-| Method | Path | Descrição |
-|--------|------|-----------|
-| GET | `/plans` | Planos |
-| GET | `/credit-tiers` | Tiers de créditos |
+| GET | `/plans` | Planos disponíveis |
+| GET | `/tournaments` | Torneios públicos |
 | GET | `/presets` | Presets de jogos |
+
+### Common (`/api/v1/common`) — JWT
+
+| Method | Path | Descrição |
+|--------|------|-----------|
+| POST | `/auth/logout` | Logout |
+| GET | `/users/me` | Perfil |
+| PUT | `/users/me` | Atualizar perfil |
+| DELETE | `/users/me` | Desativar conta |
+| GET | `/wallet/balance` | Saldo |
+| POST | `/wallet/deposit` | Depositar |
+| POST | `/wallet/withdraw` | Sacar |
+| GET | `/wallet/transactions` | Histórico |
+| POST | `/teams` | Criar time |
+| GET | `/teams/{id}` | Detalhes do time |
+| GET | `/teams/my` | Meus times |
+| POST | `/tournaments` | Criar torneio |
+| GET | `/tournaments/my-created` | Meus criados |
+| GET | `/tournaments/my-joined` | Meus inscritos |
+| GET | `/tournaments/{slug}` | Detalhes |
+| PUT | `/tournaments/{slug}/status` | Atualizar status |
+| DELETE | `/tournaments/{slug}` | Cancelar |
+| POST | `/tournaments/{slug}/participants` | Inscrever (solo) |
+| POST | `/tournaments/{slug}/participants/team` | Inscrever time |
+| DELETE | `/tournaments/{slug}/participants/{id}` | Expulsar |
+| POST | `/tournaments/{slug}/generate-bracket` | Gerar chaves |
+| GET | `/tournaments/{slug}/matches` | Listar partidas |
+| POST | `/tournaments/{slug}/schedule` | Agendar partidas |
+| PUT | `/tournaments/matches/{matchId}/reschedule` | Reagendar partida |
+
+### Admin (`/api/v1/admin`) — JWT staff
+
+| Method | Path | Descrição |
+|--------|------|-----------|
+| GET | `/credit-tiers` | Tiers de créditos |
+| GET | `/presets` | Presets (admin) |
 | GET | `/audits` | Audit logs |
 | GET | `/tournaments` | Todos os torneios |
-| GET | `/users` | Todos os usuários |
+| GET | `/users` | Staff |
+| GET | `/contacts` | Contatos |
+| GET/POST/PUT/DELETE | `/plans` | CRUD de planos |
 
 ## Tipos de Torneio
 
@@ -130,6 +149,6 @@ src/main/java/com/arenagamer/api/
 
 ## Modelo de Dados
 
-Tabelas principais: `users`, `clients`, `plans`, `credit_tiers`, `wallets`, `transactions`, `tournaments`, `tournament_participants`, `teams`, `team_members`, `rounds`, `matches`, `bracket_seeds`, `group_standings`, `availability_profiles`, `presets`, `positions`, `audit_logs`, `webhook_subscriptions`, `oauth_clients`, `api_keys`.
+Tabelas principais (prefixo `tbl`): `tblusers`, `tblclients`, `tblplans`, `tblcredit_tiers`, `tblwallets`, `tbltransactions`, `tbltournaments`, `tbltournament_participants`, `tblteams`, `tblteam_members`, `tblrounds`, `tblmatches`, `tblbracket_seeds`, `tblgroup_standings`, `tblavailability_profiles`, `tblpresets`, `tblpositions`, `tblaudit_logs`, `tblwebhook_subscriptions`, `tbloauth_clients`, `tblapi_keys`.
 
 Veja a migration completa em `src/main/resources/db/migration/V1__initial_schema.sql`.

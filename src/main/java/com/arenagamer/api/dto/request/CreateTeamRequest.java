@@ -13,5 +13,20 @@ public class CreateTeamRequest {
     @Size(max = 20)
     private String tag;
 
+    @Size(max = 500)
     private String logoUrl;
+
+    @Size(max = 500)
+    private String youtubeUrl;
+
+    @Size(max = 500)
+    private String instagramUrl;
+
+    @Size(max = 500)
+    private String twitchUrl;
+
+    @Size(max = 500)
+    private String otherSocialUrl;
+
+    private String rulesChange;
 }

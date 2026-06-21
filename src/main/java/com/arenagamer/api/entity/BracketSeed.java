@@ -7,7 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "bracket_seeds", uniqueConstraints = {
+@Table(name = "tblbracket_seeds", uniqueConstraints = {
     @UniqueConstraint(name = "uk_bracket_seed", columnNames = {"tournament_id", "seed_number"})
 })
 @Data

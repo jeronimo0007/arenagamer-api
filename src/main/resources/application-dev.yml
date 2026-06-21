@@ -4,5 +4,9 @@ spring:
 
 logging:
   level:
+    root: INFO
     com.arenagamer: DEBUG
     org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG

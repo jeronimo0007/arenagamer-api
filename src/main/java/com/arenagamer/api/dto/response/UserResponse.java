@@ -1,7 +1,8 @@
 package com.arenagamer.api.dto.response;
 
-import com.arenagamer.api.entity.User;
+import com.arenagamer.api.entity.enums.AuthUserType;
 import com.arenagamer.api.entity.enums.UserRole;
+import com.arenagamer.api.security.AuthenticatedUser;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,28 +15,55 @@ import lombok.NoArgsConstructor;
 public class UserResponse {
 
     private Long id;
+    private AuthUserType userType;
     private String email;
-    private String username;
     private String firstName;
     private String lastName;
     private String phoneNumber;
     private String avatarUrl;
+    private String instagramUrl;
+    private String youtubeUrl;
+    private String twitchUrl;
     private UserRole role;
     private Boolean emailVerified;
-    private String timezone;
+    private Integer clientUserId;
+    private Boolean isPrimary;
+    private Boolean walletViewAllowed;
+    private Boolean walletUseAllowed;
+    private Boolean canViewWallet;
+    private Boolean canUseWallet;
+    private UserPlanResponse plan;
 
-    public static UserResponse from(User user) {
+    public static UserResponse from(AuthenticatedUser user) {
+        return from(user, null);
+    }
+
+    public static UserResponse from(AuthenticatedUser user, UserPlanResponse plan) {
+        Boolean isPrimary = user.isContact() ? user.getIsPrimary() : null;
+        boolean primary = Boolean.TRUE.equals(isPrimary);
+        boolean canView = user.isContact() && (primary || Boolean.TRUE.equals(user.getWalletViewAllowed()));
+        boolean canUse = user.isContact() && (primary || Boolean.TRUE.equals(user.getWalletUseAllowed()));
+
         return UserResponse.builder()
                 .id(user.getId())
+                .userType(user.getType())
                 .email(user.getEmail())
-                .username(user.getUsername())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .phoneNumber(user.getPhoneNumber())
                 .avatarUrl(user.getAvatarUrl())
+                .instagramUrl(user.getInstagramUrl())
+                .youtubeUrl(user.getYoutubeUrl())
+                .twitchUrl(user.getTwitchUrl())
                 .role(user.getRole())
                 .emailVerified(user.getEmailVerified())
-                .timezone(user.getTimezone())
+                .clientUserId(user.getClientUserId())
+                .isPrimary(isPrimary)
+                .walletViewAllowed(user.isContact() ? user.getWalletViewAllowed() : null)
+                .walletUseAllowed(user.isContact() ? user.getWalletUseAllowed() : null)
+                .canViewWallet(user.isContact() ? canView : null)
+                .canUseWallet(user.isContact() ? canUse : null)
+                .plan(user.isContact() ? plan : null)
                 .build();
     }
 }

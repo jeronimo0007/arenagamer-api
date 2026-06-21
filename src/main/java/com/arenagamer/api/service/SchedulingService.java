@@ -6,6 +6,8 @@ import com.arenagamer.api.entity.enums.TimeWindow;
 import com.arenagamer.api.exception.BusinessException;
 import com.arenagamer.api.repository.MatchRepository;
 import com.arenagamer.api.repository.TournamentRepository;
+import com.arenagamer.api.security.AuthenticatedUser;
+import com.arenagamer.api.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +22,8 @@ public class SchedulingService {
 
     private final TournamentRepository tournamentRepository;
     private final MatchRepository matchRepository;
+    private final TournamentAccessService tournamentAccessService;
+    private final AuditService auditService;
 
     @Transactional
     public List<Match> scheduleMatches(String slug) {
@@ -40,7 +44,6 @@ public class SchedulingService {
                 continue;
             }
 
-            // Only schedule if both participants are set
             if (match.getHomeParticipant() == null || match.getAwayParticipant() == null) {
                 continue;
             }
@@ -59,7 +62,19 @@ public class SchedulingService {
             }
         }
 
+        UserPrincipal.tryCurrent()
+                .filter(AuthenticatedUser::isStaff)
+                .ifPresent(auth -> auditService.recordStaffMessage(auth, "SCHEDULE", "tournament",
+                        tournament.getId(), "Partidas agendadas: " + slug));
+
         return matchRepository.findByTournamentId(tournament.getId());
+    }
+
+    public void validateReschedulePermission(Long matchId, AuthenticatedUser auth) {
+        Match match = matchRepository.findById(matchId)
+                .orElseThrow(() -> BusinessException.notFound("Partida não encontrada"));
+        Tournament tournament = match.getRound().getTournament();
+        tournamentAccessService.validateCanManage(tournament, auth);
     }
 
     @Transactional
@@ -75,7 +90,15 @@ public class SchedulingService {
         match.setTimeWindow(timeWindowFromHour(newTime.getHour()));
         match.setStatus(MatchStatus.RESCHEDULED);
 
-        return matchRepository.save(match);
+        Match saved = matchRepository.save(match);
+        Tournament tournament = saved.getRound().getTournament();
+
+        UserPrincipal.tryCurrent()
+                .filter(AuthenticatedUser::isStaff)
+                .ifPresent(auth -> auditService.recordStaffMessage(auth, "RESCHEDULE", "match",
+                        matchId, "Partida reagendada no torneio " + tournament.getSlug()));
+
+        return saved;
     }
 
     private TimeWindow findBestWindow(Match match) {
@@ -83,21 +106,18 @@ public class SchedulingService {
         Set<TimeWindow> awayWindows = getParticipantWindows(match.getAwayParticipant());
 
         if (homeWindows.isEmpty() && awayWindows.isEmpty()) {
-            return TimeWindow.EVENING; // default
+            return TimeWindow.EVENING;
         }
 
-        // Find intersection
         Set<TimeWindow> intersection = new HashSet<>(homeWindows);
         intersection.retainAll(awayWindows);
 
         if (!intersection.isEmpty()) {
-            // Prefer EVENING > AFTERNOON > MORNING > NIGHT
             for (TimeWindow preferred : List.of(TimeWindow.EVENING, TimeWindow.AFTERNOON, TimeWindow.MORNING, TimeWindow.NIGHT)) {
                 if (intersection.contains(preferred)) return preferred;
             }
         }
 
-        // Fallback: use any available window
         Set<TimeWindow> union = new HashSet<>(homeWindows);
         union.addAll(awayWindows);
         return union.isEmpty() ? TimeWindow.EVENING : union.iterator().next();

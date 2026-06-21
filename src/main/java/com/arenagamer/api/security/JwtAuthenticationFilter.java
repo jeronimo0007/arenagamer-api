@@ -1,7 +1,7 @@
 package com.arenagamer.api.security;
 
-import com.arenagamer.api.entity.User;
-import com.arenagamer.api.repository.UserRepository;
+import com.arenagamer.api.entity.enums.AuthUserType;
+import com.arenagamer.api.service.IdentityService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,7 +22,7 @@ import java.util.List;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
-    private final UserRepository userRepository;
+    private final IdentityService identityService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -47,13 +47,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         Long userId = jwtUtil.extractUserId(token);
-        if (userId != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            User user = userRepository.findById(userId).orElse(null);
-            if (user != null && user.getActive()) {
-                var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
-                var authToken = new UsernamePasswordAuthenticationToken(user, null, authorities);
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+        AuthUserType userType = jwtUtil.extractUserType(token);
+        if (userId != null && userType != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            try {
+                AuthenticatedUser user = identityService.resolve(userType, userId);
+                if (Boolean.TRUE.equals(user.getActive())) {
+                    var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+                    var authToken = new UsernamePasswordAuthenticationToken(user, null, authorities);
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
+            } catch (Exception ignored) {
+                // Token válido mas usuário removido/inativo no Perfex
             }
         }
 

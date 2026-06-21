@@ -10,9 +10,9 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "tournament_participants", indexes = {
+@Table(name = "tbltournament_participants", indexes = {
     @Index(name = "idx_tp_tournament", columnList = "tournament_id"),
-    @Index(name = "idx_tp_user", columnList = "user_id"),
+    @Index(name = "idx_tp_contact", columnList = "contact_id"),
     @Index(name = "idx_tp_team", columnList = "team_id")
 })
 @Data
@@ -30,8 +30,8 @@ public class TournamentParticipant {
     private Tournament tournament;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    private User user;
+    @JoinColumn(name = "contact_id")
+    private Contact contact;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "team_id")

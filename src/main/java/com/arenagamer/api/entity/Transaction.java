@@ -12,7 +12,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "transactions", indexes = {
+@Table(name = "tbltransactions", indexes = {
     @Index(name = "idx_transactions_wallet_id", columnList = "wallet_id"),
     @Index(name = "idx_transactions_reference", columnList = "reference_type, reference_id")
 })
@@ -29,6 +29,10 @@ public class Transaction {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "wallet_id", nullable = false)
     private Wallet wallet;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "performed_by_contact_id")
+    private Contact performedBy;
 
     @Column(nullable = false, precision = 15, scale = 2)
     private BigDecimal amount;

@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "presets")
+@Table(name = "tblpresets")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -40,6 +40,9 @@ public class Preset {
 
     @Column(name = "icon_url")
     private String iconUrl;
+
+    @Column(name = "game_image_url", length = 500)
+    private String gameImageUrl;
 
     @Column(name = "rules_template", columnDefinition = "TEXT")
     private String rulesTemplate;
