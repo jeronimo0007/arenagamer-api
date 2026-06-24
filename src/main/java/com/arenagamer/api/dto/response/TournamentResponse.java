@@ -2,6 +2,7 @@ package com.arenagamer.api.dto.response;
 
 import com.arenagamer.api.entity.Tournament;
 import com.arenagamer.api.entity.enums.*;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -19,6 +20,7 @@ public class TournamentResponse {
     private Long id;
     private String slug;
     private String name;
+    @Schema(description = "Nome do jogo (derivado do preset)")
     private String gameName;
     private String description;
     private Long ownerId;
@@ -31,13 +33,19 @@ public class TournamentResponse {
     private TournamentStatus status;
     private Integer participantsLimit;
     private Integer minParticipants;
+    @Schema(description = "Mínimo de jogadores por equipe (somente format = TEAM)")
+    private Integer minPlayersPerTeam;
+    @Schema(description = "Máximo de jogadores por equipe (somente format = TEAM)")
+    private Integer maxPlayersPerTeam;
     private BigDecimal entryFeeCredits;
     private BigDecimal feePercentage;
     private BigDecimal prizePool;
     private PrizeType prizeType;
+    private PrizeFunding prizeFunding;
     private Integer groupsCount;
     private Integer bestOf;
     private Long presetId;
+    @Schema(description = "Nome do jogo (igual a gameName quando há preset)")
     private String presetName;
     private String presetIconUrl;
     private String rules;
@@ -51,6 +59,8 @@ public class TournamentResponse {
     private String youtubeUrl;
     private String twitchUrl;
     private Integer participantCount;
+    @Schema(description = "Total arrecadado em taxas de inscrição (somente prizeFunding = ENTRY_FEES)")
+    private BigDecimal collectedEntryFeeCredits;
     private LocalDateTime createdAt;
 
     public static TournamentResponse from(Tournament t) {
@@ -60,12 +70,13 @@ public class TournamentResponse {
     public static TournamentResponse from(Tournament t, int participantCount) {
         String presetIcon = t.getPreset() != null ? t.getPreset().getIconUrl() : null;
         String resolvedGameImage = resolveGameImageUrl(t.getGameImageUrl(), presetIcon);
+        String gameName = resolveGameName(t);
 
         return TournamentResponse.builder()
                 .id(t.getId())
                 .slug(t.getSlug())
                 .name(t.getName())
-                .gameName(t.getGameName())
+                .gameName(gameName)
                 .description(t.getDescription())
                 .ownerId(t.getOwnerId())
                 .ownerType(t.getOwnerType())
@@ -77,14 +88,17 @@ public class TournamentResponse {
                 .status(t.getStatus())
                 .participantsLimit(t.getParticipantsLimit())
                 .minParticipants(t.getMinParticipants())
+                .minPlayersPerTeam(t.getMinPlayersPerTeam())
+                .maxPlayersPerTeam(t.getMaxPlayersPerTeam())
                 .entryFeeCredits(t.getEntryFeeCredits())
                 .feePercentage(t.getFeePercentage())
                 .prizePool(t.getPrizePool())
                 .prizeType(t.getPrizeType())
+                .prizeFunding(t.getPrizeFunding())
                 .groupsCount(t.getGroupsCount())
                 .bestOf(t.getBestOf())
                 .presetId(t.getPreset() != null ? t.getPreset().getId() : null)
-                .presetName(t.getPreset() != null ? t.getPreset().getGameName() : null)
+                .presetName(gameName)
                 .presetIconUrl(presetIcon)
                 .rules(t.getRules())
                 .startDate(t.getStartDate())
@@ -99,6 +113,16 @@ public class TournamentResponse {
                 .participantCount(participantCount)
                 .createdAt(t.getCreatedAt())
                 .build();
+    }
+
+    private static String resolveGameName(Tournament t) {
+        if (t.getPreset() != null && t.getPreset().getGameName() != null && !t.getPreset().getGameName().isBlank()) {
+            return t.getPreset().getGameName().trim();
+        }
+        if (t.getGameName() != null && !t.getGameName().isBlank()) {
+            return t.getGameName().trim();
+        }
+        return null;
     }
 
     private static String resolveGameImageUrl(String gameImageUrl, String presetIconUrl) {

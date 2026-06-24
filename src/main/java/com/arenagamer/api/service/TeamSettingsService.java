@@ -26,9 +26,10 @@ public class TeamSettingsService {
     @CacheEvict(value = "teamSettings", allEntries = true)
     public TeamSettings update(TeamSettingsRequest request) {
         TeamSettings settings = getSettings();
-        settings.setMaxOwnedTeamsPerContact(request.getMaxOwnedTeamsPerContact());
-        settings.setMaxParticipatedTeamsPerContact(request.getMaxParticipatedTeamsPerContact());
+        settings.setMaxOwnedTeamsPerClient(request.getMaxOwnedTeamsPerClient());
+        settings.setMaxParticipatedTeamsPerClient(request.getMaxParticipatedTeamsPerClient());
         settings.setMaxTournamentsPerTeam(request.getMaxTournamentsPerTeam());
+        settings.setMaxTournamentsPerClient(request.getMaxTournamentsPerClient());
 
         TeamSettings saved = repository.save(settings);
         auditService.recordStaffAction("UPDATE", "team_settings", saved.getId(), null, request);
@@ -38,9 +39,10 @@ public class TeamSettingsService {
     private TeamSettings createDefaultSettings() {
         TeamSettings defaults = TeamSettings.builder()
                 .id(TeamSettings.SINGLETON_ID)
-                .maxOwnedTeamsPerContact(1)
-                .maxParticipatedTeamsPerContact(3)
+                .maxOwnedTeamsPerClient(1)
+                .maxParticipatedTeamsPerClient(3)
                 .maxTournamentsPerTeam(null)
+                .maxTournamentsPerClient(null)
                 .build();
         return repository.save(defaults);
     }

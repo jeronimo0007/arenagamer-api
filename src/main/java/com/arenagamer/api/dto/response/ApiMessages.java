@@ -21,6 +21,7 @@ public final class ApiMessages {
     public static final String TOURNAMENT_CANCELLED = "Torneio cancelado com sucesso";
     public static final String TOURNAMENT_JOINED = "Inscrição realizada com sucesso";
     public static final String TEAM_JOINED = "Time inscrito com sucesso";
+    public static final String TOURNAMENT_WITHDRAWN = "Desinscrição realizada com sucesso";
     public static final String PARTICIPANT_REMOVED = "Participante removido com sucesso";
     public static final String BRACKET_GENERATED = "Chaves geradas com sucesso";
     public static final String MATCHES_SCHEDULED = "Partidas agendadas com sucesso";
@@ -28,10 +29,16 @@ public final class ApiMessages {
 
     public static final String TEAM_CREATED = "Time criado com sucesso";
     public static final String TEAM_UPDATED = "Time atualizado com sucesso";
+    public static final String TEAM_DELETED = "Time excluído com sucesso";
+    public static final String TEAM_TRANSFERRED = "Time transferido com sucesso";
     public static final String TEAM_SETTINGS_UPDATED = "Configurações de times atualizadas";
     public static final String PROFILE_UPDATED = "Perfil atualizado com sucesso";
     public static final String MEMBER_ADDED = "Membro adicionado com sucesso";
     public static final String MEMBER_REMOVED = "Membro removido com sucesso";
+    public static final String CAPTAIN_SET = "Capitão definido com sucesso";
+    public static final String AVAILABILITY_CHANGE_REQUESTED = "Solicitação de horários enviada ao dono do time";
+    public static final String AVAILABILITY_CHANGE_APPROVED = "Horários do time atualizados";
+    public static final String AVAILABILITY_CHANGE_REJECTED = "Solicitação de horários recusada";
     public static final String OWNERSHIP_TRANSFERRED = "Liderança transferida com sucesso";
 
     public static final String DEPOSIT_SUCCESS = "Depósito realizado com sucesso";

@@ -29,6 +29,9 @@ public class AvailabilityProfile {
     @JoinColumn(name = "contact_id")
     private Contact contact;
 
+    @Column(name = "client_userid")
+    private Integer clientUserId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "team_id")
     private Team team;
@@ -44,6 +47,10 @@ public class AvailabilityProfile {
     @OneToMany(mappedBy = "availabilityProfile", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<PreciseSlot> preciseSlots = new ArrayList<>();
+
+    @OneToMany(mappedBy = "availabilityProfile", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<WeeklyAvailabilitySlot> weeklySlots = new ArrayList<>();
 
     @Column(name = "prefer_weekends", columnDefinition = "BOOLEAN DEFAULT FALSE")
     @Builder.Default

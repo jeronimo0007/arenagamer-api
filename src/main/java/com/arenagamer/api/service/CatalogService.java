@@ -19,4 +19,8 @@ public class CatalogService {
     public List<Preset> listAllPresets() {
         return presetService.listAll();
     }
+
+    public List<Preset> searchPresets(String query, boolean activeOnly) {
+        return presetService.search(query, activeOnly);
+    }
 }

@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -70,4 +71,8 @@ public interface TournamentRepository extends JpaRepository<Tournament, Long> {
     long countByClientUserIdInCurrentMonth(@Param("clientUserId") Integer clientUserId,
                                            @Param("monthStart") LocalDateTime monthStart,
                                            @Param("monthEnd") LocalDateTime monthEnd);
+
+    @Modifying
+    @Query("UPDATE Tournament t SET t.gameName = :gameName WHERE t.preset.id = :presetId")
+    void updateGameNameByPresetId(@Param("presetId") Long presetId, @Param("gameName") String gameName);
 }

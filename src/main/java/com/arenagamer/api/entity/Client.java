@@ -1,5 +1,6 @@
 package com.arenagamer.api.entity;
 
+import com.arenagamer.api.entity.enums.Visibility;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -9,7 +10,9 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "tblclients")
+@Table(name = "tblclients", indexes = {
+    @Index(name = "idx_clients_visibility", columnList = "visibility")
+})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -23,6 +26,9 @@ public class Client {
 
     @Column(length = 191)
     private String company;
+
+    @Column(length = 50)
+    private String nickname;
 
     @Column(length = 30)
     private String phonenumber;
@@ -43,6 +49,11 @@ public class Client {
     @Column(nullable = false)
     @Builder.Default
     private Integer active = 1;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, columnDefinition = "ENUM('PUBLIC','PRIVATE','PROTECTED')")
+    @Builder.Default
+    private Visibility visibility = Visibility.PUBLIC;
 
     @Column(name = "datecreated", nullable = false)
     private LocalDateTime datecreated;

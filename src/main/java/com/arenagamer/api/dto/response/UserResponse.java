@@ -2,11 +2,15 @@ package com.arenagamer.api.dto.response;
 
 import com.arenagamer.api.entity.enums.AuthUserType;
 import com.arenagamer.api.entity.enums.UserRole;
+import com.arenagamer.api.entity.enums.Visibility;
 import com.arenagamer.api.security.AuthenticatedUser;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -19,6 +23,11 @@ public class UserResponse {
     private String email;
     private String firstName;
     private String lastName;
+    private String nickname;
+    @Schema(description = "PUBLIC, PRIVATE ou PROTECTED")
+    private Visibility privacy;
+    private List<TeamRankSummaryResponse> ranks;
+    private AvailabilityScheduleResponse availability;
     private String phoneNumber;
     private String avatarUrl;
     private String instagramUrl;

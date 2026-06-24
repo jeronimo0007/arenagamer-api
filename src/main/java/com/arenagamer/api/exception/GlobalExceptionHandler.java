@@ -4,6 +4,7 @@ import com.arenagamer.api.dto.response.ApiErrorResponse;
 import com.arenagamer.api.dto.response.ErrorCode;
 import com.arenagamer.api.dto.response.ErrorDetail;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -27,6 +28,16 @@ public class GlobalExceptionHandler {
         ErrorCode code = mapStatus(ex.getStatus());
         return ResponseEntity.status(ex.getStatus())
                 .body(ApiErrorResponse.of(code, ex.getMessage(), ex.getStatus()));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiErrorResponse> handleDataIntegrity(DataIntegrityViolationException ex) {
+        String detail = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
+        String message = detail != null && detail.contains("uk_tournament_client_roster")
+                ? "Um ou mais jogadores escalados já participam deste torneio por outra equipe"
+                : "Operação conflita com dados existentes";
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiErrorResponse.of(ErrorCode.CONFLICT, message, HttpStatus.CONFLICT));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

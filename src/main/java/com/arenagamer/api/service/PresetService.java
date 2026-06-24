@@ -4,6 +4,7 @@ import com.arenagamer.api.dto.request.PresetRequest;
 import com.arenagamer.api.entity.Preset;
 import com.arenagamer.api.exception.BusinessException;
 import com.arenagamer.api.repository.PresetRepository;
+import com.arenagamer.api.repository.TournamentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -17,16 +18,30 @@ import java.util.List;
 public class PresetService {
 
     private final PresetRepository presetRepository;
+    private final TournamentRepository tournamentRepository;
     private final AuditService auditService;
 
     @Cacheable("presets")
     public List<Preset> listActive() {
-        return presetRepository.findByActiveTrue();
+        return presetRepository.findByActiveTrueOrderByGameNameAsc();
     }
 
     @Cacheable("adminPresets")
     public List<Preset> listAll() {
-        return presetRepository.findAll();
+        return presetRepository.findAll().stream()
+                .sorted((a, b) -> a.getGameName().compareToIgnoreCase(b.getGameName()))
+                .toList();
+    }
+
+    public List<Preset> search(String query, boolean activeOnly) {
+        String normalized = normalizeSearchQuery(query);
+        if (normalized == null) {
+            return activeOnly ? listActive() : listAll();
+        }
+        if (normalized.length() < 3) {
+            return List.of();
+        }
+        return presetRepository.searchByText(normalized, activeOnly);
     }
 
     public Preset getById(Long id) {
@@ -75,6 +90,7 @@ public class PresetService {
         preset.setActive(request.getActive() == null || request.getActive());
 
         Preset saved = presetRepository.save(preset);
+        tournamentRepository.updateGameNameByPresetId(saved.getId(), saved.getGameName());
         auditService.recordStaffAction("UPDATE", "preset", saved.getId(), null, request);
         return saved;
     }
@@ -107,5 +123,13 @@ public class PresetService {
 
     private String normalizeUrl(String value) {
         return normalizeText(value);
+    }
+
+    private String normalizeSearchQuery(String query) {
+        if (query == null) {
+            return null;
+        }
+        String trimmed = query.trim();
+        return trimmed.isEmpty() ? null : trimmed;
     }
 }

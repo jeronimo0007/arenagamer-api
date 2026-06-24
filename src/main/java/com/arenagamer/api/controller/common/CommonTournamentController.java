@@ -8,10 +8,13 @@ import com.arenagamer.api.dto.response.ApiResponse;
 import com.arenagamer.api.dto.response.ApiResponses;
 import com.arenagamer.api.dto.response.MatchResponse;
 import com.arenagamer.api.dto.response.TournamentManagerResponse;
+import com.arenagamer.api.dto.response.TournamentParticipantsResponse;
 import com.arenagamer.api.dto.response.TournamentResponse;
+import com.arenagamer.api.dto.response.TournamentRevenueResponse;
 import com.arenagamer.api.entity.Match;
 import com.arenagamer.api.entity.Tournament;
 import com.arenagamer.api.entity.TournamentParticipant;
+import com.arenagamer.api.entity.enums.ParticipantStatus;
 import com.arenagamer.api.entity.enums.TournamentStatus;
 import com.arenagamer.api.repository.MatchRepository;
 import com.arenagamer.api.security.UserPrincipal;
@@ -85,6 +88,19 @@ public class CommonTournamentController {
         return ApiResponses.fetched(tournamentService.toResponse(tournamentService.getBySlug(slug)));
     }
 
+    @GetMapping("/{slug}/entry-fees/revenue")
+    @Operation(summary = "Arrecadação de taxas de entrada",
+            description = """
+                    Total arrecadado e detalhamento por inscrição.
+                    Cada item indica quem pagou (payerClientUserId) e o time ou jogador inscrito.
+                    Somente organizadores do torneio. Reembolsos reduzem o total arrecadado.""")
+    public ResponseEntity<ApiResponse<TournamentRevenueResponse>> getEntryFeeRevenue(
+            @PathVariable String slug,
+            @RequestParam(required = false) Integer clientUserId) {
+        return ApiResponses.fetched(
+                tournamentService.getEntryFeeRevenue(slug, UserPrincipal.current(), clientUserId));
+    }
+
     @PutMapping("/{slug}/status")
     @Operation(summary = "Atualizar status")
     public ResponseEntity<ApiResponse<TournamentResponse>> updateStatus(
@@ -100,6 +116,19 @@ public class CommonTournamentController {
         return ApiResponses.okMessage(ApiMessages.TOURNAMENT_CANCELLED);
     }
 
+    @GetMapping("/{slug}/participants")
+    @Operation(summary = "Listar inscritos no torneio",
+            description = """
+                    format = SOLO: cada item traz player (jogador).
+                    format = TEAM: cada item traz team (nome, tag, logo, escalação).
+                    Por padrão retorna status APPROVED. Organizador pode filtrar com ?status=.""")
+    public ResponseEntity<ApiResponse<TournamentParticipantsResponse>> listParticipants(
+            @PathVariable String slug,
+            @RequestParam(required = false) ParticipantStatus status) {
+        return ApiResponses.listed(
+                tournamentService.listParticipants(slug, UserPrincipal.current(), status));
+    }
+
     @PostMapping("/{slug}/participants")
     @Operation(summary = "Inscrever-se (solo)")
     public ResponseEntity<ApiResponse<Long>> joinSolo(
@@ -110,7 +139,10 @@ public class CommonTournamentController {
     }
 
     @PostMapping("/{slug}/participants/team")
-    @Operation(summary = "Inscrever time")
+    @Operation(summary = "Inscrever time", description = """
+            Escale os jogadores com playerNicknames (ou playerClientUserIds).
+            Conflito só entre jogadores escalados — ser membro de outro time não bloqueia.
+            Sem escalação explícita, todos os membros do time são considerados escalados.""")
     public ResponseEntity<ApiResponse<Long>> joinTeam(
             @PathVariable String slug, @Valid @RequestBody JoinTournamentRequest request) {
         TournamentParticipant p = tournamentService.joinTeam(slug, UserPrincipal.current(), request);
@@ -118,11 +150,25 @@ public class CommonTournamentController {
     }
 
     @DeleteMapping("/{slug}/participants/{participantId}")
-    @Operation(summary = "Expulsar participante")
+    @Operation(summary = "Expulsar participante", description = "Somente organizador do torneio.")
     public ResponseEntity<ApiResponse<Void>> kick(
             @PathVariable String slug, @PathVariable Long participantId) {
         tournamentService.kickParticipant(slug, participantId, UserPrincipal.current());
         return ApiResponses.okMessage(ApiMessages.PARTICIPANT_REMOVED);
+    }
+
+    @DeleteMapping("/{slug}/registration")
+    @Operation(summary = "Desinscrever-se do torneio",
+            description = """
+                    Se o torneio tiver startDate, permitido até o dia anterior ao início.
+                    Sem data de início, pode desinscrever enquanto o torneio não tiver começado.
+                    Solo: sem parâmetros. Time: informe teamId.
+                    Devolve a taxa de inscrição retida, se houver.""")
+    public ResponseEntity<ApiResponse<Void>> withdraw(
+            @PathVariable String slug,
+            @RequestParam(required = false) Long teamId) {
+        tournamentService.withdrawFromTournament(slug, UserPrincipal.current(), teamId);
+        return ApiResponses.okMessage(ApiMessages.TOURNAMENT_WITHDRAWN);
     }
 
     @PostMapping("/{slug}/generate-bracket")

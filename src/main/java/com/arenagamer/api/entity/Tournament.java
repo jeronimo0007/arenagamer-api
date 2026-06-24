@@ -79,6 +79,14 @@ public class Tournament {
     @Column(name = "min_participants")
     private Integer minParticipants;
 
+    /** Mínimo de jogadores (clientes) por equipe — somente quando format = TEAM. */
+    @Column(name = "min_players_per_team")
+    private Integer minPlayersPerTeam;
+
+    /** Máximo de jogadores (clientes) por equipe — somente quando format = TEAM. */
+    @Column(name = "max_players_per_team")
+    private Integer maxPlayersPerTeam;
+
     @Column(name = "entry_fee_credits", precision = 10, scale = 2)
     @Builder.Default
     private BigDecimal entryFeeCredits = BigDecimal.ZERO;
@@ -95,6 +103,11 @@ public class Tournament {
     @Column(name = "prize_type", length = 10)
     @Builder.Default
     private PrizeType prizeType = PrizeType.MANUAL;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "prize_funding", length = 20, nullable = false)
+    @Builder.Default
+    private PrizeFunding prizeFunding = PrizeFunding.FIXED;
 
     @Column(name = "groups_count")
     private Integer groupsCount;

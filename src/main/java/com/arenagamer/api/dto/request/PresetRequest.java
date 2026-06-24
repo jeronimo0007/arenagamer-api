@@ -1,5 +1,6 @@
 package com.arenagamer.api.dto.request;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -11,6 +12,7 @@ public class PresetRequest {
 
     @NotBlank
     @Size(max = 100)
+    @Schema(description = "Nome do jogo")
     private String gameName;
 
     @Size(max = 100)

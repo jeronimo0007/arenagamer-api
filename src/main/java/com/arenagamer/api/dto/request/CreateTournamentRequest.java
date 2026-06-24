@@ -1,6 +1,7 @@
 package com.arenagamer.api.dto.request;
 
 import com.arenagamer.api.entity.enums.*;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -15,9 +16,6 @@ public class CreateTournamentRequest {
 
     @NotBlank @Size(max = 200)
     private String name;
-
-    @Size(max = 100)
-    private String gameName;
 
     private String description;
 
@@ -34,7 +32,20 @@ public class CreateTournamentRequest {
 
     private Integer minParticipants;
 
+    @Min(1)
+    @Schema(description = "Mínimo de jogadores por equipe — obrigatório quando format = TEAM")
+    private Integer minPlayersPerTeam;
+
+    @Min(1)
+    @Schema(description = "Máximo de jogadores por equipe — obrigatório quando format = TEAM")
+    private Integer maxPlayersPerTeam;
+
+    @Schema(description = "Jogo predefinido (opcional) — preenche nome, regras e mídia automaticamente")
     private Long presetId;
+
+    @Size(max = 100)
+    @Schema(description = "Nome do jogo — obrigatório quando presetId não é informado")
+    private String gameName;
 
     /** Opcional. Apenas staff pode informar o cliente dono do torneio. */
     private Integer clientUserId;
@@ -44,6 +55,11 @@ public class CreateTournamentRequest {
     private BigDecimal feePercentage;
 
     private PrizeType prizeType;
+
+    private PrizeFunding prizeFunding;
+
+    @Schema(description = "Valor do prêmio fixo em créditos — obrigatório com prêmio fixo e distribuição automática")
+    private BigDecimal prizePool;
 
     private Integer groupsCount;
 

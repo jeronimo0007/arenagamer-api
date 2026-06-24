@@ -4,35 +4,70 @@ import com.arenagamer.api.dto.request.UpdateProfileRequest;
 import com.arenagamer.api.dto.response.ApiMessages;
 import com.arenagamer.api.dto.response.ApiResponse;
 import com.arenagamer.api.dto.response.ApiResponses;
+import com.arenagamer.api.dto.response.NicknameAvailabilityResponse;
+import com.arenagamer.api.dto.response.TeamRankSummaryResponse;
 import com.arenagamer.api.dto.response.UserPlanResponse;
 import com.arenagamer.api.dto.response.UserResponse;
+import com.arenagamer.api.entity.Client;
 import com.arenagamer.api.entity.Contact;
 import com.arenagamer.api.entity.Staff;
 import com.arenagamer.api.entity.enums.AuthUserType;
 import com.arenagamer.api.exception.BusinessException;
+import com.arenagamer.api.repository.ClientRankRepository;
+import com.arenagamer.api.repository.ClientRepository;
 import com.arenagamer.api.repository.ContactRepository;
 import com.arenagamer.api.repository.StaffRepository;
 import com.arenagamer.api.security.AuthenticatedUser;
 import com.arenagamer.api.security.UserPrincipal;
+import com.arenagamer.api.service.AvailabilityService;
+import com.arenagamer.api.service.ClientNicknameService;
+import com.arenagamer.api.service.ClientRankService;
 import com.arenagamer.api.service.SubscriptionService;
+import com.arenagamer.api.util.NicknameRules;
+import com.arenagamer.api.entity.enums.Visibility;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/common/users")
 @RequiredArgsConstructor
+@Validated
 @Tag(name = "Common / Usuário", description = "Perfil do usuário logado — JWT (staff ou cliente)")
 @SecurityRequirement(name = "Bearer")
 public class CommonUserController {
 
     private final StaffRepository staffRepository;
     private final ContactRepository contactRepository;
+    private final ClientRepository clientRepository;
+    private final ClientRankRepository clientRankRepository;
+    private final ClientRankService clientRankService;
+    private final ClientNicknameService clientNicknameService;
+    private final AvailabilityService availabilityService;
     private final SubscriptionService subscriptionService;
+
+    @GetMapping("/nickname-available")
+    @Operation(
+            summary = "Verificar se nickname está disponível",
+            description = "Letras e números apenas. Ignora o nickname do cliente logado.")
+    public ResponseEntity<ApiResponse<NicknameAvailabilityResponse>> checkNickname(
+            @RequestParam
+            @NotBlank
+            @Size(max = 50)
+            @Pattern(regexp = NicknameRules.REGEX, message = NicknameRules.VALIDATION_MESSAGE)
+            String nickname) {
+        AuthenticatedUser auth = UserPrincipal.current();
+        Integer excludeClientUserId = auth.isContact() ? auth.getClientUserId() : null;
+        return ApiResponses.fetched(clientNicknameService.checkAvailability(nickname, excludeClientUserId));
+    }
 
     @GetMapping("/me")
     @Operation(summary = "Obter perfil")
@@ -51,10 +86,13 @@ public class CommonUserController {
             @RequestParam(required = false) String instagramUrl,
             @RequestParam(required = false) String youtubeUrl,
             @RequestParam(required = false) String twitchUrl,
+            @RequestParam(required = false) String nickname,
+            @RequestParam(required = false) Visibility visibility,
             @Valid @RequestBody(required = false) UpdateProfileRequest body) {
 
         UpdateProfileRequest request = mergeProfileRequest(
-                firstName, lastName, phoneNumber, avatarUrl, instagramUrl, youtubeUrl, twitchUrl, body);
+                firstName, lastName, phoneNumber, avatarUrl, instagramUrl, youtubeUrl, twitchUrl,
+                nickname, visibility, body);
 
         AuthenticatedUser auth = UserPrincipal.current();
 
@@ -101,6 +139,11 @@ public class CommonUserController {
             contact.setTwitchUrl(normalizeUrl(request.getTwitchUrl()));
         }
         contactRepository.save(contact);
+
+        if (Integer.valueOf(1).equals(contact.getIsPrimary())) {
+            updateClientProfile(contact.getUserid(), request);
+        }
+
         return ApiResponses.updated(ApiMessages.PROFILE_UPDATED, buildUserResponse(AuthenticatedUser.fromContact(contact)));
     }
 
@@ -132,6 +175,8 @@ public class CommonUserController {
             String instagramUrl,
             String youtubeUrl,
             String twitchUrl,
+            String nickname,
+            Visibility visibility,
             UpdateProfileRequest body) {
         UpdateProfileRequest request = body != null ? body : new UpdateProfileRequest();
         if (firstName != null) {
@@ -155,7 +200,36 @@ public class CommonUserController {
         if (twitchUrl != null) {
             request.setTwitchUrl(twitchUrl);
         }
+        if (nickname != null) {
+            request.setNickname(nickname);
+        }
+        if (visibility != null) {
+            request.setVisibility(visibility);
+        }
         return request;
+    }
+
+    private void updateClientProfile(Integer clientUserId, UpdateProfileRequest request) {
+        Client client = clientRepository.findById(clientUserId)
+                .orElseThrow(() -> BusinessException.notFound("Cliente não encontrado"));
+        if (request.getNickname() != null) {
+            String nickname = clientNicknameService.normalizeRequired(request.getNickname());
+            clientNicknameService.ensureAvailable(nickname, clientUserId);
+            client.setNickname(nickname);
+        }
+        if (request.getVisibility() != null) {
+            client.setVisibility(request.getVisibility());
+        }
+        clientRepository.save(client);
+        if (request.getRanks() != null) {
+            clientRankService.syncRanks(client, request.getRanks());
+        }
+        if (request.getAvailability() != null && request.getAvailability().getWeeklySlots() != null) {
+            Contact primaryContact = contactRepository.findByUseridAndIsPrimary(clientUserId, 1)
+                    .orElseThrow(() -> BusinessException.notFound("Contato primário não encontrado"));
+            availabilityService.syncClientSchedule(
+                    clientUserId, primaryContact, request.getAvailability().getWeeklySlots());
+        }
     }
 
     private String normalizeUrl(String value) {
@@ -170,6 +244,22 @@ public class CommonUserController {
         UserPlanResponse plan = user.isContact()
                 ? subscriptionService.getActivePlanForClient(user.getClientUserId())
                 : null;
-        return UserResponse.from(user, plan);
+        UserResponse response = UserResponse.from(user, plan);
+        if (user.isContact() && user.getClientUserId() != null) {
+            clientRepository.findById(user.getClientUserId()).ifPresent(client -> {
+                response.setNickname(client.getNickname());
+                response.setPrivacy(client.getVisibility());
+            });
+            response.setRanks(clientRankRepository.findByClientUserIdWithPreset(user.getClientUserId()).stream()
+                    .map(rank -> TeamRankSummaryResponse.builder()
+                            .presetId(rank.getPreset().getId())
+                            .gameName(rank.getPreset().getGameName())
+                            .platform(rank.getPreset().getPlatform())
+                            .rankPoints(rank.getRankPoints())
+                            .build())
+                    .toList());
+            response.setAvailability(availabilityService.getClientSchedule(user.getClientUserId()));
+        }
+        return response;
     }
 }

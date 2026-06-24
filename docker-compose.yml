@@ -1,6 +1,23 @@
 version: '3.8'
 
 services:
+  mysql:
+    image: mysql:8.4
+    container_name: arenagamer-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: arenagamer
+    ports:
+      - "3307:3306"
+    volumes:
+      - arenagamer_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
   redis:
     image: redis:7-alpine
     container_name: arenagamer-redis
@@ -35,7 +52,10 @@ services:
     env_file:
       - .env
     environment:
-      # Redis e RabbitMQ continuam nos containers Docker
+      # Redis, RabbitMQ e MySQL nos containers Docker
+      DB_URL: jdbc:mysql://mysql:3306/arenagamer?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      DB_USERNAME: root
+      DB_PASSWORD: root
       REDIS_HOST: redis
       RABBITMQ_HOST: rabbitmq
     ports:
@@ -43,8 +63,13 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:
+      mysql:
+        condition: service_healthy
       redis:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  arenagamer_mysql_data:

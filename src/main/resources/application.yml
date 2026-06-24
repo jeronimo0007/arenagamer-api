@@ -3,13 +3,14 @@ spring:
     name: arenagamer-api
 
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/arenagamer?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true}
+    url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/arenagamer?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true&connectTimeout=10000&socketTimeout=30000}
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 20
       minimum-idle: 5
+      connection-timeout: 10000
 
   jpa:
     hibernate:
@@ -24,6 +25,8 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+    # Banco vazio ou Perfex sem histórico Flyway: baseline na v1 e aplica V1_1 em diante.
+    # Banco Perfex existente: V1_1 usa IF NOT EXISTS; V2+ cria/altera só o que falta.
     baseline-on-migrate: true
     baseline-version: 1
 

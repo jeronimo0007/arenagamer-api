@@ -13,6 +13,7 @@ import com.arenagamer.api.entity.Wallet;
 import com.arenagamer.api.entity.enums.AuthUserType;
 import com.arenagamer.api.exception.BusinessException;
 import com.arenagamer.api.repository.ArenaRefreshTokenRepository;
+import com.arenagamer.api.repository.ClientRankRepository;
 import com.arenagamer.api.repository.ClientRepository;
 import com.arenagamer.api.repository.ContactRepository;
 import com.arenagamer.api.repository.StaffRepository;
@@ -34,11 +35,13 @@ public class AuthService {
     private final StaffRepository staffRepository;
     private final ContactRepository contactRepository;
     private final ClientRepository clientRepository;
+    private final ClientRankRepository clientRankRepository;
     private final WalletRepository walletRepository;
     private final ArenaRefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final SubscriptionService subscriptionService;
+    private final ClientNicknameService clientNicknameService;
 
     @Value("${jwt.access-token-expiration}")
     private Long accessTokenExpiration;
@@ -49,8 +52,12 @@ public class AuthService {
             throw BusinessException.conflict("Email já cadastrado");
         }
 
+        String nickname = clientNicknameService.normalizeRequired(request.getNickname());
+        clientNicknameService.ensureAvailable(nickname, null);
+
         Client client = Client.builder()
                 .company(request.getFirstName() + " " + request.getLastName())
+                .nickname(nickname)
                 .phonenumber(request.getPhoneNumber() != null ? request.getPhoneNumber() : "")
                 .datecreated(LocalDateTime.now())
                 .active(1)
@@ -177,7 +184,22 @@ public class AuthService {
         UserPlanResponse plan = user.isContact()
                 ? subscriptionService.getActivePlanForClient(user.getClientUserId())
                 : null;
-        return UserResponse.from(user, plan);
+        UserResponse response = UserResponse.from(user, plan);
+        if (user.isContact() && user.getClientUserId() != null) {
+            clientRepository.findById(user.getClientUserId()).ifPresent(client -> {
+                response.setNickname(client.getNickname());
+                response.setPrivacy(client.getVisibility());
+            });
+            response.setRanks(clientRankRepository.findByClientUserIdWithPreset(user.getClientUserId()).stream()
+                    .map(rank -> com.arenagamer.api.dto.response.TeamRankSummaryResponse.builder()
+                            .presetId(rank.getPreset().getId())
+                            .gameName(rank.getPreset().getGameName())
+                            .platform(rank.getPreset().getPlatform())
+                            .rankPoints(rank.getRankPoints())
+                            .build())
+                    .toList());
+        }
+        return response;
     }
 
     private String normalizeUrl(String value) {

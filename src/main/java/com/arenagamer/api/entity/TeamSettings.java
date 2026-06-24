@@ -22,12 +22,15 @@ public class TeamSettings {
     @Id
     private Long id;
 
-    @Column(name = "max_owned_teams_per_contact", nullable = false)
-    private Integer maxOwnedTeamsPerContact;
+    @Column(name = "max_owned_teams_per_client", nullable = false)
+    private Integer maxOwnedTeamsPerClient;
 
-    @Column(name = "max_participated_teams_per_contact", nullable = false)
-    private Integer maxParticipatedTeamsPerContact;
+    @Column(name = "max_participated_teams_per_client", nullable = false)
+    private Integer maxParticipatedTeamsPerClient;
 
     @Column(name = "max_tournaments_per_team")
     private Integer maxTournamentsPerTeam;
+
+    @Column(name = "max_tournaments_per_client")
+    private Integer maxTournamentsPerClient;
 }

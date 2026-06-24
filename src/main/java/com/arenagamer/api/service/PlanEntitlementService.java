@@ -3,6 +3,8 @@ package com.arenagamer.api.service;
 import com.arenagamer.api.dto.request.CreateTournamentRequest;
 import com.arenagamer.api.entity.Plan;
 import com.arenagamer.api.entity.UserSubscription;
+import com.arenagamer.api.entity.enums.PrizeFunding;
+import com.arenagamer.api.entity.enums.PrizeType;
 import com.arenagamer.api.exception.BusinessException;
 import com.arenagamer.api.repository.UserSubscriptionRepository;
 import lombok.RequiredArgsConstructor;
@@ -50,12 +52,16 @@ public class PlanEntitlementService {
         boolean tournamentLimitReached = freeTournamentsPerMonth > 0 && used >= freeTournamentsPerMonth;
         boolean freeSlot = freeTournamentsPerMonth > 0 && used < freeTournamentsPerMonth;
         BigDecimal creditCost = calculateCreationCost(plan, participantsLimit, freeSlot, !tournamentLimitReached);
+        creditCost = creditCost.add(resolvePrizePoolCreationCost(request));
 
-        if (entryFee.compareTo(BigDecimal.ZERO) > 0
+        PrizeFunding funding = request.getPrizeFunding() != null ? request.getPrizeFunding() : PrizeFunding.FIXED;
+        boolean requiresEntryFeeBenefit = funding == PrizeFunding.ENTRY_FEES
+                || entryFee.compareTo(BigDecimal.ZERO) > 0;
+        if (requiresEntryFeeBenefit
                 && !Boolean.TRUE.equals(plan.getAllowsEntryFee())
                 && creditCost.compareTo(ENTRY_FEE_MIN_CREATION_COST) < 0) {
             throw BusinessException.badRequest(
-                    "Taxa de inscrição só é permitida a partir de 5 créditos na criação ou se seu plano inclui esse benefício");
+                    "Taxa de inscrição só é permitida após gastar 5 créditos na criação além da isenção do plano ou se seu plano inclui esse benefício");
         }
 
         if (creditCost.compareTo(BigDecimal.ZERO) > 0) {
@@ -125,5 +131,17 @@ public class PlanEntitlementService {
 
     private int safeInt(Integer value) {
         return value != null ? value : 0;
+    }
+
+    private BigDecimal resolvePrizePoolCreationCost(CreateTournamentRequest request) {
+        PrizeType prizeType = request.getPrizeType() != null ? request.getPrizeType() : PrizeType.MANUAL;
+        PrizeFunding funding = request.getPrizeFunding() != null ? request.getPrizeFunding() : PrizeFunding.FIXED;
+
+        if (prizeType != PrizeType.AUTOMATIC || funding != PrizeFunding.FIXED) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal pool = request.getPrizePool() != null ? request.getPrizePool() : BigDecimal.ZERO;
+        return pool.max(BigDecimal.ZERO);
     }
 }

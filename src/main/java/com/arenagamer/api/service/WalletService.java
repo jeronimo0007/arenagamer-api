@@ -174,6 +174,24 @@ public class WalletService {
         walletRepository.save(wallet);
     }
 
+    @Transactional
+    public void linkHoldReference(Integer clientUserId, String referenceType, Long fromReferenceId, Long toReferenceId) {
+        Wallet wallet = getWalletForUpdate(clientUserId);
+        var completedTxs = transactionRepository.findByWalletIdAndReferenceTypeAndReferenceIdAndStatus(
+                wallet.getId(), referenceType, fromReferenceId, TransactionStatus.COMPLETED);
+        for (Transaction tx : completedTxs) {
+            tx.setReferenceId(toReferenceId);
+            transactionRepository.save(tx);
+        }
+
+        var heldTxs = transactionRepository.findByWalletIdAndReferenceTypeAndReferenceIdAndStatus(
+                wallet.getId(), referenceType, fromReferenceId, TransactionStatus.HELD);
+        for (Transaction tx : heldTxs) {
+            tx.setReferenceId(toReferenceId);
+            transactionRepository.save(tx);
+        }
+    }
+
     public Page<Transaction> getTransactionsForContact(Contact contact, Pageable pageable) {
         walletAccessService.requireViewWallet(contact);
         Wallet wallet = getOrCreateWallet(contact.getUserid());

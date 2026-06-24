@@ -1,8 +1,10 @@
 package com.arenagamer.api.dto.request;
 
+import com.arenagamer.api.util.NicknameRules;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -26,9 +28,11 @@ public class RegisterRequest {
     @Schema(description = "Sobrenome", example = "Silva")
     private String lastName;
 
+    @NotBlank
     @Size(max = 50)
-    @Schema(description = "Nome de usuário (opcional)")
-    private String username;
+    @Pattern(regexp = NicknameRules.REGEX, message = NicknameRules.VALIDATION_MESSAGE)
+    @Schema(description = "Nickname público (único). Letras e números apenas.", example = "joaosilva")
+    private String nickname;
 
     @Size(max = 30)
     @Schema(description = "Telefone (opcional)", example = "11999999999")

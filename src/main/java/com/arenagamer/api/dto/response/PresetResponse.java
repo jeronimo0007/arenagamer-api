@@ -11,10 +11,11 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Schema(description = "Preset de configuração de jogo")
+@Schema(description = "Preset de configuração de jogo — gameName é o nome do jogo")
 public class PresetResponse {
 
     private Long id;
+    @Schema(description = "Nome do jogo")
     private String gameName;
     private String platform;
     private Integer teamSize;

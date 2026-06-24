@@ -4,6 +4,7 @@ import com.arenagamer.api.dto.request.AdminAuditLogRequest;
 import com.arenagamer.api.dto.response.*;
 import com.arenagamer.api.repository.*;
 import com.arenagamer.api.security.AuthenticatedUser;
+import com.arenagamer.api.security.UserPrincipal;
 import com.arenagamer.api.service.AuditService;
 import com.arenagamer.api.service.TournamentService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,9 +17,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -69,6 +72,15 @@ public class AdminController {
     public ResponseEntity<ApiResponse<Page<TournamentResponse>>> listAllTournaments(Pageable pageable) {
         Page<TournamentResponse> page = tournamentService.toResponsePage(tournamentRepository.findAll(pageable));
         return ApiResponses.listed(page);
+    }
+
+    @GetMapping("/tournaments/{slug}/entry-fees/revenue")
+    @Operation(summary = "Arrecadação de taxas de entrada do torneio")
+    public ResponseEntity<ApiResponse<TournamentRevenueResponse>> getTournamentEntryFeeRevenue(
+            @PathVariable String slug,
+            @RequestParam(required = false) Integer clientUserId) {
+        return ApiResponses.fetched(
+                tournamentService.getEntryFeeRevenue(slug, UserPrincipal.current(), clientUserId));
     }
 
     @GetMapping("/users")

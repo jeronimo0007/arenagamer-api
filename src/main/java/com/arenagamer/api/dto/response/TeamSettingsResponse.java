@@ -1,6 +1,7 @@
 package com.arenagamer.api.dto.response;
 
 import com.arenagamer.api.entity.TeamSettings;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -12,17 +13,33 @@ import lombok.NoArgsConstructor;
 @Builder
 public class TeamSettingsResponse {
 
-    private Integer maxOwnedTeamsPerContact;
-    private Integer maxParticipatedTeamsPerContact;
+    private Integer maxOwnedTeamsPerClient;
+    private Integer maxParticipatedTeamsPerClient;
     private Integer maxTournamentsPerTeam;
+    private Integer maxTournamentsPerClient;
     private Boolean unlimitedTournamentsPerTeam;
+    private Boolean unlimitedTournamentsPerClient;
+
+    /** @deprecated use maxOwnedTeamsPerClient */
+    @JsonProperty("maxOwnedTeamsPerContact")
+    public Integer getMaxOwnedTeamsPerContact() {
+        return maxOwnedTeamsPerClient;
+    }
+
+    /** @deprecated use maxParticipatedTeamsPerClient */
+    @JsonProperty("maxParticipatedTeamsPerContact")
+    public Integer getMaxParticipatedTeamsPerContact() {
+        return maxParticipatedTeamsPerClient;
+    }
 
     public static TeamSettingsResponse from(TeamSettings settings) {
         return TeamSettingsResponse.builder()
-                .maxOwnedTeamsPerContact(settings.getMaxOwnedTeamsPerContact())
-                .maxParticipatedTeamsPerContact(settings.getMaxParticipatedTeamsPerContact())
+                .maxOwnedTeamsPerClient(settings.getMaxOwnedTeamsPerClient())
+                .maxParticipatedTeamsPerClient(settings.getMaxParticipatedTeamsPerClient())
                 .maxTournamentsPerTeam(settings.getMaxTournamentsPerTeam())
+                .maxTournamentsPerClient(settings.getMaxTournamentsPerClient())
                 .unlimitedTournamentsPerTeam(settings.getMaxTournamentsPerTeam() == null)
+                .unlimitedTournamentsPerClient(settings.getMaxTournamentsPerClient() == null)
                 .build();
     }
 }

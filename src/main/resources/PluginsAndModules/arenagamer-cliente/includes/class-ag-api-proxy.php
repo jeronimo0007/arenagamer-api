@@ -11,6 +11,7 @@ class AG_Api_Proxy {
         '/api/v1/public/tournaments',
         '/api/v1/public/presets',
         '/api/v1/public/tournament-pricing',
+        '/api/v1/public/team-settings',
     ];
 
     public static function init(): void {

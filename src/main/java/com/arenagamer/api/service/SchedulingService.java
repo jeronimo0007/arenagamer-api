@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
@@ -24,6 +25,7 @@ public class SchedulingService {
     private final MatchRepository matchRepository;
     private final TournamentAccessService tournamentAccessService;
     private final AuditService auditService;
+    private final AvailabilityService availabilityService;
 
     @Transactional
     public List<Match> scheduleMatches(String slug) {
@@ -49,7 +51,7 @@ public class SchedulingService {
             }
 
             TimeWindow bestWindow = findBestWindow(match);
-            LocalDateTime scheduledTime = calculateScheduleTime(baseDate, dayOffset, bestWindow);
+            LocalDateTime scheduledTime = findScheduleTime(baseDate, dayOffset, bestWindow, match);
 
             match.setScheduledAt(scheduledTime);
             match.setTimeWindow(bestWindow);
@@ -127,8 +129,28 @@ public class SchedulingService {
         if (participant == null || participant.getAvailabilityProfile() == null) {
             return EnumSet.allOf(TimeWindow.class);
         }
-        Set<TimeWindow> windows = participant.getAvailabilityProfile().getWindows();
-        return windows.isEmpty() ? EnumSet.allOf(TimeWindow.class) : windows;
+        return availabilityService.resolveTimeWindows(participant.getAvailabilityProfile());
+    }
+
+    private LocalDateTime findScheduleTime(
+            LocalDateTime baseDate, int dayOffset, TimeWindow window, Match match) {
+        for (int offset = dayOffset; offset < dayOffset + 14; offset++) {
+            LocalDateTime candidate = calculateScheduleTime(baseDate, offset, window);
+            DayOfWeek day = candidate.getDayOfWeek();
+            LocalTime time = candidate.toLocalTime();
+            if (isParticipantAvailable(match.getHomeParticipant(), day, time)
+                    && isParticipantAvailable(match.getAwayParticipant(), day, time)) {
+                return candidate;
+            }
+        }
+        return calculateScheduleTime(baseDate, dayOffset, window);
+    }
+
+    private boolean isParticipantAvailable(TournamentParticipant participant, DayOfWeek day, LocalTime time) {
+        if (participant == null || participant.getAvailabilityProfile() == null) {
+            return true;
+        }
+        return availabilityService.isAvailableAt(participant.getAvailabilityProfile(), day, time);
     }
 
     private LocalDateTime calculateScheduleTime(LocalDateTime baseDate, int dayOffset, TimeWindow window) {

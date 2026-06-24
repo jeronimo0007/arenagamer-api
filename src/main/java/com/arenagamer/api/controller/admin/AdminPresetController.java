@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -29,9 +30,15 @@ public class AdminPresetController {
     private final PresetService presetService;
 
     @GetMapping
-    @Operation(summary = "Listar presets de jogos")
-    public ResponseEntity<ApiResponse<List<PresetResponse>>> listPresets() {
-        List<PresetResponse> presets = presetService.listAll().stream()
+    @Operation(summary = "Listar ou pesquisar presets",
+            description = """
+                    Sem q: todos os presets (ativos e inativos).
+                    Com q: filtra por nome do jogo ou plataforma.
+                    activeOnly=true limita aos ativos.""")
+    public ResponseEntity<ApiResponse<List<PresetResponse>>> listPresets(
+            @RequestParam(required = false) @Size(max = 100) String q,
+            @RequestParam(required = false, defaultValue = "false") boolean activeOnly) {
+        List<PresetResponse> presets = presetService.search(q, activeOnly).stream()
                 .map(PresetResponse::from)
                 .toList();
         return ApiResponses.listed(presets);
