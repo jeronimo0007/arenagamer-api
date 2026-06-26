@@ -7,6 +7,7 @@ import com.arenagamer.api.dto.response.ApiResponse;
 import com.arenagamer.api.dto.response.ApiResponses;
 import com.arenagamer.api.dto.response.ClientWalletResponse;
 import com.arenagamer.api.dto.response.ContactWalletPermissionResponse;
+import com.arenagamer.api.dto.response.CreditPurchaseResponse;
 import com.arenagamer.api.dto.response.TransactionResponse;
 import com.arenagamer.api.entity.Contact;
 import com.arenagamer.api.entity.Transaction;
@@ -45,13 +46,15 @@ public class CommonWalletController {
         return ApiResponses.fetched(walletService.getClientWalletForContact(contact));
     }
 
-    @PostMapping("/deposit")
-    @Operation(summary = "Depositar créditos na carteira da empresa")
-    public ResponseEntity<ApiResponse<TransactionResponse>> deposit(@Valid @RequestBody WalletDepositRequest request) {
+    @PostMapping("/credits/purchase")
+    @Operation(summary = "Comprar créditos (gera fatura no Perfex)",
+            description = "Toda compra de créditos passa pelo Perfex: gera uma fatura e retorna a URL de "
+                    + "pagamento. O saldo só é creditado automaticamente após o pagamento da fatura.")
+    public ResponseEntity<ApiResponse<CreditPurchaseResponse>> purchaseCredits(
+            @Valid @RequestBody WalletDepositRequest request) {
         Contact contact = requireContact();
-        Transaction tx = walletService.depositForContact(
-                contact, request.getAmount(), request.getDescription());
-        return ApiResponses.ok(ApiMessages.DEPOSIT_SUCCESS, TransactionResponse.from(tx));
+        CreditPurchaseResponse purchase = walletService.purchaseCreditsForContact(contact, request.getAmount());
+        return ApiResponses.ok(ApiMessages.CREDIT_INVOICE_CREATED, purchase);
     }
 
     @PostMapping("/withdraw")
@@ -67,8 +70,7 @@ public class CommonWalletController {
     @Operation(summary = "Histórico de transações da empresa")
     public ResponseEntity<ApiResponse<Page<TransactionResponse>>> transactions(Pageable pageable) {
         Contact contact = requireContact();
-        Page<TransactionResponse> page = walletService.getTransactionsForContact(contact, pageable)
-                .map(TransactionResponse::from);
+        Page<TransactionResponse> page = walletService.getTransactionsForContact(contact, pageable);
         return ApiResponses.listed(page);
     }
 

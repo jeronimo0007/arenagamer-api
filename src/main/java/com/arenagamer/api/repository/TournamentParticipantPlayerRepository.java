@@ -69,4 +69,25 @@ public interface TournamentParticipantPlayerRepository extends JpaRepository<Tou
             @Param("tournamentId") Long tournamentId,
             @Param("clientUserIds") Collection<Integer> clientUserIds,
             @Param("participantStatus") ParticipantStatus participantStatus);
+
+    boolean existsByParticipantIdAndClient_UserId(Long participantId, Integer clientUserId);
+
+    void deleteByParticipantIdAndClient_UserId(Long participantId, Integer clientUserId);
+
+    @Query("""
+            SELECT tpp
+            FROM TournamentParticipantPlayer tpp
+            JOIN FETCH tpp.participant p
+            JOIN FETCH p.tournament t
+            JOIN FETCH p.team team
+            WHERE tpp.client.userId = :clientUserId
+              AND team.id = :teamId
+              AND p.status = :participantStatus
+              AND t.status IN :tournamentStatuses
+            """)
+    List<TournamentParticipantPlayer> findActiveRosterEntriesByTeamAndClient(
+            @Param("teamId") Long teamId,
+            @Param("clientUserId") Integer clientUserId,
+            @Param("participantStatus") ParticipantStatus participantStatus,
+            @Param("tournamentStatuses") Collection<com.arenagamer.api.entity.enums.TournamentStatus> tournamentStatuses);
 }

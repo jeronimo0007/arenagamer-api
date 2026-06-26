@@ -9,8 +9,12 @@ import com.arenagamer.api.entity.TeamSettings;
 import com.arenagamer.api.entity.enums.AuthUserType;
 import com.arenagamer.api.entity.enums.UserRole;
 import com.arenagamer.api.exception.BusinessException;
+import com.arenagamer.api.dto.response.TeamJoinRequestResponse;
+import com.arenagamer.api.repository.AvailabilityProfileRepository;
 import com.arenagamer.api.repository.ClientRepository;
 import com.arenagamer.api.repository.PresetRepository;
+import com.arenagamer.api.repository.TeamAvailabilityChangeRequestRepository;
+import com.arenagamer.api.repository.TeamJoinRequestRepository;
 import com.arenagamer.api.repository.TeamMemberRepository;
 import com.arenagamer.api.repository.TeamRankRepository;
 import com.arenagamer.api.repository.TeamRepository;
@@ -44,10 +48,16 @@ class TeamServiceClientLogicTest {
     @Mock private PresetRepository presetRepository;
     @Mock private ClientRepository clientRepository;
     @Mock private TournamentParticipantRepository tournamentParticipantRepository;
+    @Mock private TeamJoinRequestRepository teamJoinRequestRepository;
+    @Mock private TeamAvailabilityChangeRequestRepository teamAvailabilityChangeRequestRepository;
+    @Mock private AvailabilityProfileRepository availabilityProfileRepository;
     @Mock private IdentityService identityService;
     @Mock private TeamSettingsService teamSettingsService;
     @Mock private TeamRankService teamRankService;
     @Mock private AvailabilityService availabilityService;
+    @Mock private TeamJoinRequestService teamJoinRequestService;
+    @Mock private TeamRosterService teamRosterService;
+    @Mock private TournamentService tournamentService;
 
     @InjectMocks
     private TeamService teamService;
@@ -133,21 +143,38 @@ class TeamServiceClientLogicTest {
     }
 
     @Test
-    void addMemberClient_usesClientUserId() {
+    void addMemberClient_createsJoinRequestInsteadOfDirectMember() {
+        AuthenticatedUser auth = contactAuth(primaryOwnerContact);
+        TeamJoinRequestResponse expected = TeamJoinRequestResponse.builder()
+                .id(1L)
+                .teamId(100L)
+                .invitedClientUserId(20)
+                .build();
+
+        when(teamJoinRequestService.inviteMember(100L, 20, auth)).thenReturn(expected);
+
+        TeamJoinRequestResponse result = teamService.addMemberClient(100L, 20, auth);
+
+        assertThat(result.getId()).isEqualTo(1L);
+        assertThat(result.getInvitedClientUserId()).isEqualTo(20);
+        verify(teamJoinRequestService).inviteMember(100L, 20, auth);
+        verify(teamMemberRepository, org.mockito.Mockito.never()).save(any());
+    }
+
+    @Test
+    void delete_releasesTeamFromTournamentsBeforeRemoving() {
         AuthenticatedUser auth = contactAuth(primaryOwnerContact);
         Team team = team(100L, ownerClient);
 
         when(identityService.requireContact(auth)).thenReturn(primaryOwnerContact);
         when(teamRepository.findByIdWithDetails(100L)).thenReturn(Optional.of(team));
-        when(teamMemberRepository.existsByTeamIdAndClient_UserId(100L, 20)).thenReturn(false);
-        when(teamMemberRepository.countByClient_UserId(20)).thenReturn(1L);
-        when(clientRepository.findById(20)).thenReturn(Optional.of(memberClient));
 
-        teamService.addMemberClient(100L, 20, auth);
+        teamService.delete(100L, auth);
 
-        ArgumentCaptor<TeamMember> memberCaptor = ArgumentCaptor.forClass(TeamMember.class);
-        verify(teamMemberRepository).save(memberCaptor.capture());
-        assertThat(memberCaptor.getValue().getClient().getUserId()).isEqualTo(20);
+        verify(tournamentService).releaseTeamForDeletion(100L);
+        verify(teamJoinRequestRepository).deleteByTeam_Id(100L);
+        verify(teamAvailabilityChangeRequestRepository).deleteByTeam_Id(100L);
+        verify(teamRepository).delete(team);
     }
 
     @Test
@@ -198,6 +225,9 @@ class TeamServiceClientLogicTest {
 
         teamService.removeMemberClient(100L, 20, auth);
 
+        verify(teamRosterService).handleMemberDeparture(team, 20, false, primaryOwnerContact);
+        verify(teamJoinRequestService).onMemberLeftTeam(100L, 20);
+
         assertThat(team.getMembers()).isEmpty();
         verify(teamMemberRepository).deleteByTeamIdAndClient_UserId(100L, 20);
     }
@@ -218,6 +248,9 @@ class TeamServiceClientLogicTest {
         when(teamMemberRepository.existsByTeamIdAndClient_UserId(100L, 20)).thenReturn(true);
 
         teamService.removeMemberClient(100L, 20, auth);
+
+        verify(teamRosterService).handleMemberDeparture(team, 20, true, memberContact);
+        verify(teamJoinRequestService).onMemberLeftTeam(100L, 20);
 
         assertThat(team.getMembers()).isEmpty();
         verify(teamMemberRepository).deleteByTeamIdAndClient_UserId(100L, 20);

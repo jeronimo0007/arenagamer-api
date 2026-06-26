@@ -55,6 +55,7 @@ public class TournamentService {
     private final TeamService teamService;
     private final TournamentParticipantPlayerRepository participantPlayerRepository;
     private final TournamentEntryFeeService tournamentEntryFeeService;
+    private final TeamRosterService teamRosterService;
 
     private static final List<TournamentStatus> ACTIVE_TOURNAMENT_STATUSES = List.of(
             TournamentStatus.REGISTRATION_OPEN,
@@ -244,6 +245,7 @@ public class TournamentService {
         Tournament tournament = getBySlug(slug);
         tournamentAccessService.validateCanManage(tournament, auth);
         validateEditable(tournament);
+        validateFormatFieldsUnchangedWithParticipants(tournament, request);
 
         if (request.getName() != null && !request.getName().isBlank()) {
             tournament.setName(request.getName().trim());
@@ -437,7 +439,7 @@ public class TournamentService {
         if (tournament.getFormat() == TournamentFormat.SOLO
                 && preset.getMinPlayersPerTeam() != null
                 && preset.getMinPlayersPerTeam() > 0) {
-            tournament.setMinParticipants(Math.max(2, preset.getMinPlayersPerTeam()));
+            tournament.setMinParticipants(Math.max(4, preset.getMinPlayersPerTeam()));
         }
 
         if (tournament.getFormat() == TournamentFormat.TEAM
@@ -498,6 +500,41 @@ public class TournamentService {
         }
     }
 
+    private void validateFormatFieldsUnchangedWithParticipants(
+            Tournament tournament, UpdateTournamentRequest request) {
+        if (countApprovedParticipants(tournament.getId()) <= 0) {
+            return;
+        }
+
+        if (request.getType() != null && request.getType() != tournament.getType()) {
+            throw BusinessException.badRequest(
+                    "Formato e modo do torneio não podem ser alterados após haver inscrições");
+        }
+
+        if (request.getFormat() != null && request.getFormat() != tournament.getFormat()) {
+            throw BusinessException.badRequest(
+                    "Formato e modo do torneio não podem ser alterados após haver inscrições");
+        }
+
+        if (request.getMinPlayersPerTeam() != null
+                && !request.getMinPlayersPerTeam().equals(tournament.getMinPlayersPerTeam())) {
+            throw BusinessException.badRequest(
+                    "Formato e modo do torneio não podem ser alterados após haver inscrições");
+        }
+
+        if (request.getMaxPlayersPerTeam() != null
+                && !request.getMaxPlayersPerTeam().equals(tournament.getMaxPlayersPerTeam())) {
+            throw BusinessException.badRequest(
+                    "Formato e modo do torneio não podem ser alterados após haver inscrições");
+        }
+
+        if (request.getGroupsCount() != null
+                && !request.getGroupsCount().equals(tournament.getGroupsCount())) {
+            throw BusinessException.badRequest(
+                    "Formato e modo do torneio não podem ser alterados após haver inscrições");
+        }
+    }
+
     public Page<Tournament> listMyCreated(AuthenticatedUser auth, Pageable pageable) {
         return tournamentRepository.findByOwnerTypeAndOwnerId(auth.getType(), auth.getId(), pageable);
     }
@@ -531,6 +568,7 @@ public class TournamentService {
 
         if (newStatus == TournamentStatus.IN_PROGRESS && previousStatus != TournamentStatus.IN_PROGRESS) {
             tournamentEntryFeeService.captureAllForTournament(saved);
+            teamRosterService.forfeitOpenVacanciesOnTournamentStart(saved.getId());
         }
         if (newStatus == TournamentStatus.CANCELLED && previousStatus != TournamentStatus.CANCELLED) {
             tournamentEntryFeeService.refundAllHeldForTournament(saved);
@@ -677,6 +715,45 @@ public class TournamentService {
         participant.setStatus(ParticipantStatus.WITHDRAWN);
         participantRepository.save(participant);
         tournamentEntryFeeService.refund(participant);
+    }
+
+    /**
+     * Remove inscrições ativas do time antes de excluí-lo.
+     * Torneio não iniciado (até 1 dia antes do startDate): desinscreve com reembolso da taxa, se houver.
+     * Torneio já iniciado: desinscreve sem reembolso (derrota automática).
+     */
+    @Transactional
+    public void releaseTeamForDeletion(Long teamId) {
+        List<TournamentParticipant> participations = participantRepository.findByTeamIdAndStatusWithTournament(
+                teamId, ParticipantStatus.APPROVED);
+
+        for (TournamentParticipant participant : participations) {
+            Tournament tournament = participant.getTournament();
+            participant.setStatus(ParticipantStatus.WITHDRAWN);
+
+            if (!hasTournamentStarted(tournament) && isRefundEligibleOnWithdrawal(tournament)) {
+                tournamentEntryFeeService.refund(participant);
+            }
+
+            participant.setTeam(null);
+            participantRepository.save(participant);
+        }
+    }
+
+    private boolean hasTournamentStarted(Tournament tournament) {
+        return tournament.getStatus() == TournamentStatus.IN_PROGRESS
+                || tournament.getStatus() == TournamentStatus.COMPLETED;
+    }
+
+    private boolean isRefundEligibleOnWithdrawal(Tournament tournament) {
+        if (tournament.getStatus() == TournamentStatus.CANCELLED
+                || tournament.getStatus() == TournamentStatus.COMPLETED) {
+            return false;
+        }
+        if (tournament.getStartDate() == null) {
+            return true;
+        }
+        return LocalDate.now().isBefore(tournament.getStartDate().toLocalDate());
     }
 
     private TournamentParticipant resolveWithdrawableParticipant(

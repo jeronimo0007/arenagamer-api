@@ -26,6 +26,10 @@ public final class ApiMessages {
     public static final String BRACKET_GENERATED = "Chaves geradas com sucesso";
     public static final String MATCHES_SCHEDULED = "Partidas agendadas com sucesso";
     public static final String MATCH_RESCHEDULED = "Partida reagendada com sucesso";
+    public static final String MATCH_RESULT_RECORDED = "Resultado registrado com sucesso";
+    public static final String ROUND_ADVANCED = "Próxima fase gerada com sucesso";
+    public static final String KNOCKOUT_GENERATED = "Mata-mata gerado com sucesso";
+    public static final String TOURNAMENT_FINALIZED = "Torneio finalizado com sucesso";
 
     public static final String TEAM_CREATED = "Time criado com sucesso";
     public static final String TEAM_UPDATED = "Time atualizado com sucesso";
@@ -34,6 +38,11 @@ public final class ApiMessages {
     public static final String TEAM_SETTINGS_UPDATED = "Configurações de times atualizadas";
     public static final String PROFILE_UPDATED = "Perfil atualizado com sucesso";
     public static final String MEMBER_ADDED = "Membro adicionado com sucesso";
+    public static final String MEMBER_INVITED = "Convite enviado ao jogador";
+    public static final String TEAM_JOIN_REQUEST_ACCEPTED = "Convite aceito — você entrou no time";
+    public static final String ROSTER_VACANCY_FILLED = "Vaga na escalação preenchida";
+    public static final String ROSTER_VACANCY_FORFEITED = "Vaga confirmada sem reposição — banimento aplicado";
+    public static final String ROSTER_REALLOCATED = "Escalação atualizada com sucesso";
     public static final String MEMBER_REMOVED = "Membro removido com sucesso";
     public static final String CAPTAIN_SET = "Capitão definido com sucesso";
     public static final String AVAILABILITY_CHANGE_REQUESTED = "Solicitação de horários enviada ao dono do time";
@@ -43,6 +52,7 @@ public final class ApiMessages {
 
     public static final String DEPOSIT_SUCCESS = "Depósito realizado com sucesso";
     public static final String WITHDRAW_SUCCESS = "Saque realizado com sucesso";
+    public static final String CREDIT_INVOICE_CREATED = "Fatura de créditos gerada. O saldo será creditado após o pagamento.";
     public static final String ACCOUNT_DEACTIVATED = "Conta desativada com sucesso";
 
     public static final String PLAN_CREATED = "Plano criado com sucesso";

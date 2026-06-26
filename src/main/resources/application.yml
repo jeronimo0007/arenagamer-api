@@ -3,7 +3,8 @@ spring:
     name: arenagamer-api
 
   datasource:
-    url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/arenagamer?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true&connectTimeout=10000&socketTimeout=30000}
+    # Defina DB_URL para controle total, OU apenas DB_HOST/DB_PORT/DB_NAME (mais simples).
+    url: ${DB_URL:jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/${DB_NAME:arenagamer}?useSSL=${DB_USE_SSL:false}&serverTimezone=${DB_TIMEZONE:UTC}&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true&connectTimeout=10000&socketTimeout=30000}
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -50,6 +51,17 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+
+# Integração com o Perfex CRM (callback para criação de faturas de créditos).
+# A compra de créditos SEMPRE gera uma fatura no Perfex; o saldo só é creditado
+# após o pagamento (via hook do módulo Perfex -> /admin/wallet/.../deposit).
+arenagamer:
+  perfex:
+    base-url: ${PERFEX_BASE_URL:http://localhost/perfex_crm}
+    # Deve ser idêntico à option `arenagamer_internal_secret` exibida em
+    # ArenaGamer > Configurações no painel do Perfex.
+    internal-secret: ${PERFEX_INTERNAL_SECRET:}
+    credit-invoice-path: ${PERFEX_CREDIT_INVOICE_PATH:/arenagamer/internal/credit_invoice}
 
 # JWT
 jwt:

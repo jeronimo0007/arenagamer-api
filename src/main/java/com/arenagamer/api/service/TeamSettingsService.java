@@ -30,6 +30,9 @@ public class TeamSettingsService {
         settings.setMaxParticipatedTeamsPerClient(request.getMaxParticipatedTeamsPerClient());
         settings.setMaxTournamentsPerTeam(request.getMaxTournamentsPerTeam());
         settings.setMaxTournamentsPerClient(request.getMaxTournamentsPerClient());
+        if (request.getTeamJoinBanDaysAfterUnreplacedExit() != null) {
+            settings.setTeamJoinBanDaysAfterUnreplacedExit(request.getTeamJoinBanDaysAfterUnreplacedExit());
+        }
 
         TeamSettings saved = repository.save(settings);
         auditService.recordStaffAction("UPDATE", "team_settings", saved.getId(), null, request);
@@ -43,6 +46,7 @@ public class TeamSettingsService {
                 .maxParticipatedTeamsPerClient(3)
                 .maxTournamentsPerTeam(null)
                 .maxTournamentsPerClient(null)
+                .teamJoinBanDaysAfterUnreplacedExit(7)
                 .build();
         return repository.save(defaults);
     }

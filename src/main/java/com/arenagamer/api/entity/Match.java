@@ -53,6 +53,9 @@ public class Match {
     @Column(name = "away_score")
     private Integer awayScore;
 
+    @Column(name = "result_proof_url", length = 500)
+    private String resultProofUrl;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "winner_participant_id")
     private TournamentParticipant winnerParticipant;

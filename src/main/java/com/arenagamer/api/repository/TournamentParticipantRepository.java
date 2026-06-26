@@ -83,6 +83,17 @@ public interface TournamentParticipantRepository extends JpaRepository<Tournamen
             @Param("tournamentStatuses") Collection<TournamentStatus> tournamentStatuses);
 
     @Query("""
+            SELECT tp
+            FROM TournamentParticipant tp
+            JOIN FETCH tp.tournament t
+            WHERE tp.team.id = :teamId
+              AND tp.status = :status
+            """)
+    List<TournamentParticipant> findByTeamIdAndStatusWithTournament(
+            @Param("teamId") Long teamId,
+            @Param("status") ParticipantStatus status);
+
+    @Query("""
             SELECT t.preset.id, COUNT(tp)
             FROM TournamentParticipant tp
             JOIN tp.tournament t

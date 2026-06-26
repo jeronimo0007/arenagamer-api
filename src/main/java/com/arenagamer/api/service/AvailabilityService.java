@@ -151,6 +151,86 @@ public class AvailabilityService {
                 .anyMatch(slot -> !time.isBefore(slot.getStartTime()) && time.isBefore(slot.getEndTime()));
     }
 
+    /**
+     * Faixa de horário comum (dia da semana + intervalo) entre dois perfis.
+     */
+    public record CommonSlot(DayOfWeek dayOfWeek, LocalTime startTime, LocalTime endTime) {
+    }
+
+    /**
+     * Interseção dos horários semanais de dois perfis.
+     *
+     * <p>Perfil {@code null} ou sem horários semanais é tratado como "disponível sempre":
+     * nesse caso a interseção é igual aos horários do outro perfil. Quando ambos estão livres,
+     * retorna lista vazia, sinalizando "qualquer dia/horário".</p>
+     */
+    public List<CommonSlot> findCommonWeeklySlots(AvailabilityProfile a, AvailabilityProfile b) {
+        List<WeeklyAvailabilitySlot> slotsA = weeklySlotsOf(a);
+        List<WeeklyAvailabilitySlot> slotsB = weeklySlotsOf(b);
+
+        boolean aFree = slotsA.isEmpty();
+        boolean bFree = slotsB.isEmpty();
+
+        if (aFree && bFree) {
+            return List.of();
+        }
+        if (aFree) {
+            return toCommonSlots(slotsB);
+        }
+        if (bFree) {
+            return toCommonSlots(slotsA);
+        }
+
+        List<CommonSlot> common = new ArrayList<>();
+        for (WeeklyAvailabilitySlot slotA : slotsA) {
+            for (WeeklyAvailabilitySlot slotB : slotsB) {
+                if (slotA.getDayOfWeek() != slotB.getDayOfWeek()) {
+                    continue;
+                }
+                LocalTime start = max(slotA.getStartTime(), slotB.getStartTime());
+                LocalTime end = min(slotA.getEndTime(), slotB.getEndTime());
+                if (start.isBefore(end)) {
+                    common.add(new CommonSlot(slotA.getDayOfWeek(), start, end));
+                }
+            }
+        }
+        common.sort(Comparator.comparing(CommonSlot::dayOfWeek).thenComparing(CommonSlot::startTime));
+        return common;
+    }
+
+    /**
+     * Interseção das faixas do dia (TimeWindow) entre dois perfis, usada como fallback de agendamento.
+     */
+    public Set<TimeWindow> commonTimeWindows(AvailabilityProfile a, AvailabilityProfile b) {
+        Set<TimeWindow> windows = EnumSet.copyOf(resolveTimeWindows(a));
+        windows.retainAll(resolveTimeWindows(b));
+        return windows;
+    }
+
+    private List<WeeklyAvailabilitySlot> weeklySlotsOf(AvailabilityProfile profile) {
+        if (profile == null || profile.getWeeklySlots() == null) {
+            return List.of();
+        }
+        return profile.getWeeklySlots();
+    }
+
+    private List<CommonSlot> toCommonSlots(List<WeeklyAvailabilitySlot> slots) {
+        List<CommonSlot> result = new ArrayList<>();
+        for (WeeklyAvailabilitySlot slot : slots) {
+            result.add(new CommonSlot(slot.getDayOfWeek(), slot.getStartTime(), slot.getEndTime()));
+        }
+        result.sort(Comparator.comparing(CommonSlot::dayOfWeek).thenComparing(CommonSlot::startTime));
+        return result;
+    }
+
+    private LocalTime max(LocalTime a, LocalTime b) {
+        return a.isAfter(b) ? a : b;
+    }
+
+    private LocalTime min(LocalTime a, LocalTime b) {
+        return a.isBefore(b) ? a : b;
+    }
+
     private void applyWeeklySlots(AvailabilityProfile profile, List<WeeklyAvailabilitySlotRequest> slots) {
         profile.getWeeklySlots().clear();
         if (slots == null) {

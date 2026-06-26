@@ -2,11 +2,16 @@ package com.arenagamer.api.controller.common;
 
 import com.arenagamer.api.dto.request.CreateTeamRequest;
 import com.arenagamer.api.dto.request.TeamAvailabilityChangeRequestDto;
+import com.arenagamer.api.dto.request.TeamRosterFillVacancyRequest;
+import com.arenagamer.api.dto.request.TeamRosterReallocateRequest;
 import com.arenagamer.api.dto.request.UpdateTeamRequest;
 import com.arenagamer.api.dto.response.*;
 import com.arenagamer.api.entity.Team;
 import com.arenagamer.api.security.UserPrincipal;
 import com.arenagamer.api.service.TeamAvailabilityChangeService;
+import com.arenagamer.api.service.TeamJoinBanService;
+import com.arenagamer.api.service.TeamJoinRequestService;
+import com.arenagamer.api.service.TeamRosterService;
 import com.arenagamer.api.service.TeamService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -32,6 +37,9 @@ public class CommonTeamController {
 
     private final TeamService teamService;
     private final TeamAvailabilityChangeService teamAvailabilityChangeService;
+    private final TeamJoinRequestService teamJoinRequestService;
+    private final TeamRosterService teamRosterService;
+    private final TeamJoinBanService teamJoinBanService;
 
     @PostMapping
     @Operation(summary = "Criar time", description = "Contato primário. Dono = cliente do contato.")
@@ -62,7 +70,12 @@ public class CommonTeamController {
     }
 
     @DeleteMapping("/{id}")
-    @Operation(summary = "Excluir time", description = "Contato primário do cliente dono. Bloqueado se inscrito em torneio.")
+    @Operation(summary = "Excluir time",
+            description = """
+                    Contato primário do cliente dono.
+                    Se inscrito em torneio não iniciado: desinscreve (com reembolso da taxa até 1 dia antes do início).
+                    Se o torneio já começou: desinscreve sem reembolso (derrota automática).
+                    Em seguida exclui o time.""")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
         teamService.delete(id, UserPrincipal.current());
         return ApiResponses.deleted(ApiMessages.TEAM_DELETED);
@@ -96,23 +109,102 @@ public class CommonTeamController {
     }
 
     @PostMapping("/{teamId}/members/clients/{clientUserId}")
-    @Operation(summary = "Adicionar cliente ao time")
-    public ResponseEntity<ApiResponse<Void>> addMemberClient(
+    @Operation(summary = "Convidar cliente para o time",
+            description = "Envia convite — o jogador precisa aceitar para entrar no time.")
+    public ResponseEntity<ApiResponse<TeamJoinRequestResponse>> addMemberClient(
             @PathVariable Long teamId,
             @Parameter(description = "userid do cliente") @PathVariable Integer clientUserId) {
-        teamService.addMemberClient(teamId, clientUserId, UserPrincipal.current());
-        return ApiResponses.okMessage(ApiMessages.MEMBER_ADDED);
+        TeamJoinRequestResponse invite = teamService.addMemberClient(teamId, clientUserId, UserPrincipal.current());
+        return ApiResponses.created(ApiMessages.MEMBER_INVITED, invite);
+    }
+
+    @GetMapping("/{teamId}/join-requests")
+    @Operation(summary = "Listar convites do time", description = "Somente dono do time. Por padrão retorna pendentes.")
+    public ResponseEntity<ApiResponse<List<TeamJoinRequestResponse>>> listJoinRequests(
+            @PathVariable Long teamId,
+            @RequestParam(defaultValue = "true") boolean pendingOnly) {
+        return ApiResponses.listed(teamJoinRequestService.listForTeam(teamId, UserPrincipal.current(), pendingOnly));
+    }
+
+    @GetMapping("/join-requests/received")
+    @Operation(summary = "Meus convites para entrar em times", description = "Convites recebidos pelo meu cliente.")
+    public ResponseEntity<ApiResponse<List<TeamJoinRequestResponse>>> listReceivedJoinRequests(
+            @RequestParam(defaultValue = "true") boolean pendingOnly) {
+        return ApiResponses.listed(teamJoinRequestService.listReceived(UserPrincipal.current(), pendingOnly));
+    }
+
+    @PostMapping("/join-requests/{requestId}/accept")
+    @Operation(summary = "Aceitar convite para entrar no time")
+    public ResponseEntity<ApiResponse<TeamJoinRequestResponse>> acceptJoinRequest(@PathVariable Long requestId) {
+        TeamJoinRequestResponse accepted = teamJoinRequestService.accept(requestId, UserPrincipal.current());
+        return ApiResponses.updated(ApiMessages.TEAM_JOIN_REQUEST_ACCEPTED, accepted);
     }
 
     @DeleteMapping("/{teamId}/members/clients/{clientUserId}")
-    @Operation(summary = "Remover cliente do time",
-            description = "Dono (contato primário) remove qualquer membro, exceto o dono. "
-                    + "Membro pode remover a si mesmo (clientUserId = userid do próprio cliente).")
+    @Operation(summary = "Remover cliente do time / sair do time",
+            description = """
+                    Membro pode sair a qualquer momento, inclusive com time em torneio (abre vaga na escalação).
+                    Dono remove membros que não estejam em partida agendada ou em andamento.
+                    Se a vaga não for preenchida, o jogador pode ser banido de entrar em outros times.""")
     public ResponseEntity<ApiResponse<Void>> removeMemberClient(
             @PathVariable Long teamId,
             @PathVariable Integer clientUserId) {
         teamService.removeMemberClient(teamId, clientUserId, UserPrincipal.current());
         return ApiResponses.okMessage(ApiMessages.MEMBER_REMOVED);
+    }
+
+    @GetMapping("/{teamId}/roster-vacancies")
+    @Operation(summary = "Vagas abertas na escalação", description = "Somente dono do time.")
+    public ResponseEntity<ApiResponse<List<TeamRosterVacancyResponse>>> listRosterVacancies(
+            @PathVariable Long teamId,
+            @RequestParam(defaultValue = "true") boolean pendingOnly) {
+        return ApiResponses.listed(teamRosterService.listVacancies(teamId, UserPrincipal.current(), pendingOnly));
+    }
+
+    @PostMapping("/{teamId}/roster-vacancies/{vacancyId}/fill")
+    @Operation(summary = "Preencher vaga na escalação")
+    public ResponseEntity<ApiResponse<TeamRosterVacancyResponse>> fillRosterVacancy(
+            @PathVariable Long teamId,
+            @PathVariable Long vacancyId,
+            @Valid @RequestBody TeamRosterFillVacancyRequest request) {
+        return ApiResponses.updated(
+                ApiMessages.ROSTER_VACANCY_FILLED,
+                teamRosterService.fillVacancy(teamId, vacancyId, request, UserPrincipal.current()));
+    }
+
+    @PostMapping("/{teamId}/roster-vacancies/{vacancyId}/forfeit")
+    @Operation(summary = "Confirmar vaga sem reposição",
+            description = "Banimento configurável pelo admin para o jogador que saiu.")
+    public ResponseEntity<ApiResponse<TeamRosterVacancyResponse>> forfeitRosterVacancy(
+            @PathVariable Long teamId,
+            @PathVariable Long vacancyId) {
+        return ApiResponses.updated(
+                ApiMessages.ROSTER_VACANCY_FORFEITED,
+                teamRosterService.forfeitVacancy(teamId, vacancyId, UserPrincipal.current()));
+    }
+
+    @PostMapping("/{teamId}/roster/reallocate")
+    @Operation(summary = "Realocar jogador na escalação do torneio",
+            description = "Substitui um jogador por outro. Bloqueado se o time tiver partida agendada ou em andamento.")
+    public ResponseEntity<ApiResponse<TeamRosterVacancyResponse>> reallocateRoster(
+            @PathVariable Long teamId,
+            @Valid @RequestBody TeamRosterReallocateRequest request) {
+        return ApiResponses.updated(
+                ApiMessages.ROSTER_REALLOCATED,
+                teamRosterService.reallocate(teamId, request, UserPrincipal.current()));
+    }
+
+    @GetMapping("/join-ban/status")
+    @Operation(summary = "Status de banimento para entrar em times")
+    public ResponseEntity<ApiResponse<TeamJoinBanResponse>> joinBanStatus() {
+        var auth = UserPrincipal.current();
+        if (!auth.isContact() || auth.getClientUserId() == null) {
+            return ApiResponses.fetched(null);
+        }
+        return ApiResponses.fetched(
+                teamJoinBanService.findActiveBan(auth.getClientUserId())
+                        .map(TeamJoinBanResponse::from)
+                        .orElse(null));
     }
 
     @PostMapping("/{teamId}/members/clients/{clientUserId}/captain")

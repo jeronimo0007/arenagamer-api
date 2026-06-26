@@ -17,4 +17,6 @@ public interface TeamAvailabilityChangeRequestRepository extends JpaRepository<T
     Optional<TeamAvailabilityChangeRequest> findByIdAndTeam_Id(Long id, Long teamId);
 
     boolean existsByTeam_IdAndStatus(Long teamId, AvailabilityChangeStatus status);
+
+    void deleteByTeam_Id(Long teamId);
 }

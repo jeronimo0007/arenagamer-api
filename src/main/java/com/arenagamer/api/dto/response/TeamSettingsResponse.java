@@ -17,6 +17,7 @@ public class TeamSettingsResponse {
     private Integer maxParticipatedTeamsPerClient;
     private Integer maxTournamentsPerTeam;
     private Integer maxTournamentsPerClient;
+    private Integer teamJoinBanDaysAfterUnreplacedExit;
     private Boolean unlimitedTournamentsPerTeam;
     private Boolean unlimitedTournamentsPerClient;
 
@@ -38,6 +39,7 @@ public class TeamSettingsResponse {
                 .maxParticipatedTeamsPerClient(settings.getMaxParticipatedTeamsPerClient())
                 .maxTournamentsPerTeam(settings.getMaxTournamentsPerTeam())
                 .maxTournamentsPerClient(settings.getMaxTournamentsPerClient())
+                .teamJoinBanDaysAfterUnreplacedExit(settings.getTeamJoinBanDaysAfterUnreplacedExit())
                 .unlimitedTournamentsPerTeam(settings.getMaxTournamentsPerTeam() == null)
                 .unlimitedTournamentsPerClient(settings.getMaxTournamentsPerClient() == null)
                 .build();

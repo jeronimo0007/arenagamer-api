@@ -6,6 +6,7 @@ import com.arenagamer.api.dto.request.UpdateTeamRequest;
 import com.arenagamer.api.dto.response.TeamActiveTournamentResponse;
 import com.arenagamer.api.dto.response.TeamDetailAccess;
 import com.arenagamer.api.dto.response.TeamDetailResponse;
+import com.arenagamer.api.dto.response.TeamJoinRequestResponse;
 import com.arenagamer.api.dto.response.TeamManagementResponse;
 import com.arenagamer.api.dto.response.TeamMemberClientResponse;
 import com.arenagamer.api.dto.response.TeamOwnerResponse;
@@ -25,15 +26,18 @@ import com.arenagamer.api.entity.enums.TeamStatus;
 import com.arenagamer.api.entity.enums.TournamentStatus;
 import com.arenagamer.api.entity.enums.Visibility;
 import com.arenagamer.api.exception.BusinessException;
+import com.arenagamer.api.repository.AvailabilityProfileRepository;
 import com.arenagamer.api.repository.ClientRepository;
 import com.arenagamer.api.repository.PresetRepository;
+import com.arenagamer.api.repository.TeamAvailabilityChangeRequestRepository;
+import com.arenagamer.api.repository.TeamJoinRequestRepository;
 import com.arenagamer.api.repository.TeamMemberRepository;
 import com.arenagamer.api.repository.TeamRankRepository;
 import com.arenagamer.api.repository.TeamRepository;
 import com.arenagamer.api.repository.TournamentParticipantRepository;
 import com.arenagamer.api.security.AuthenticatedUser;
 import com.arenagamer.api.util.TeamVisibilityRules;
-import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -46,7 +50,6 @@ import java.util.Optional;
 import java.util.Set;
 
 @Service
-@RequiredArgsConstructor
 public class TeamService {
 
     private final TeamRepository teamRepository;
@@ -55,10 +58,51 @@ public class TeamService {
     private final PresetRepository presetRepository;
     private final ClientRepository clientRepository;
     private final TournamentParticipantRepository tournamentParticipantRepository;
+    private final TeamJoinRequestRepository teamJoinRequestRepository;
+    private final TeamAvailabilityChangeRequestRepository teamAvailabilityChangeRequestRepository;
+    private final AvailabilityProfileRepository availabilityProfileRepository;
     private final IdentityService identityService;
     private final TeamSettingsService teamSettingsService;
     private final TeamRankService teamRankService;
     private final AvailabilityService availabilityService;
+    private final TeamJoinRequestService teamJoinRequestService;
+    private final TeamRosterService teamRosterService;
+    private final TournamentService tournamentService;
+
+    public TeamService(
+            TeamRepository teamRepository,
+            TeamMemberRepository teamMemberRepository,
+            TeamRankRepository teamRankRepository,
+            PresetRepository presetRepository,
+            ClientRepository clientRepository,
+            TournamentParticipantRepository tournamentParticipantRepository,
+            TeamJoinRequestRepository teamJoinRequestRepository,
+            TeamAvailabilityChangeRequestRepository teamAvailabilityChangeRequestRepository,
+            AvailabilityProfileRepository availabilityProfileRepository,
+            IdentityService identityService,
+            TeamSettingsService teamSettingsService,
+            TeamRankService teamRankService,
+            AvailabilityService availabilityService,
+            TeamJoinRequestService teamJoinRequestService,
+            TeamRosterService teamRosterService,
+            @Lazy TournamentService tournamentService) {
+        this.teamRepository = teamRepository;
+        this.teamMemberRepository = teamMemberRepository;
+        this.teamRankRepository = teamRankRepository;
+        this.presetRepository = presetRepository;
+        this.clientRepository = clientRepository;
+        this.tournamentParticipantRepository = tournamentParticipantRepository;
+        this.teamJoinRequestRepository = teamJoinRequestRepository;
+        this.teamAvailabilityChangeRequestRepository = teamAvailabilityChangeRequestRepository;
+        this.availabilityProfileRepository = availabilityProfileRepository;
+        this.identityService = identityService;
+        this.teamSettingsService = teamSettingsService;
+        this.teamRankService = teamRankService;
+        this.availabilityService = availabilityService;
+        this.teamJoinRequestService = teamJoinRequestService;
+        this.teamRosterService = teamRosterService;
+        this.tournamentService = tournamentService;
+    }
 
     private static final List<TournamentStatus> ACTIVE_TOURNAMENT_STATUSES = List.of(
             TournamentStatus.REGISTRATION_OPEN,
@@ -147,11 +191,17 @@ public class TeamService {
         Team team = getById(teamId);
         requireTeamManager(team, requester, "excluir");
 
-        if (tournamentParticipantRepository.existsByTeam_Id(teamId)) {
-            throw BusinessException.conflict("Não é possível excluir time inscrito em torneio");
-        }
+        tournamentService.releaseTeamForDeletion(teamId);
+        cleanupTeamDependencies(teamId);
 
         teamRepository.delete(team);
+    }
+
+    private void cleanupTeamDependencies(Long teamId) {
+        teamJoinRequestRepository.deleteByTeam_Id(teamId);
+        teamAvailabilityChangeRequestRepository.deleteByTeam_Id(teamId);
+        availabilityProfileRepository.findByTeam_Id(teamId)
+                .ifPresent(availabilityProfileRepository::delete);
     }
 
     @Transactional
@@ -192,31 +242,8 @@ public class TeamService {
     }
 
     @Transactional
-    public void addMemberClient(Long teamId, Integer memberClientUserId, AuthenticatedUser auth) {
-        Contact requester = identityService.requireContact(auth);
-        Team team = getById(teamId);
-        TeamSettings settings = teamSettingsService.getSettings();
-        requireTeamManager(team, requester, "adicionar clientes");
-
-        if (memberClientUserId.equals(team.getClient().getUserId())) {
-            throw BusinessException.badRequest("O cliente dono já é membro do time");
-        }
-
-        if (teamMemberRepository.existsByTeamIdAndClient_UserId(teamId, memberClientUserId)) {
-            throw BusinessException.conflict("Cliente já é membro do time");
-        }
-
-        if (teamMemberRepository.countByClient_UserId(memberClientUserId) >= settings.getMaxParticipatedTeamsPerClient()) {
-            throw BusinessException.conflict("Cliente atingiu o limite de participação em times");
-        }
-
-        Client memberClient = clientRepository.findById(memberClientUserId)
-                .orElseThrow(() -> BusinessException.notFound("Cliente não encontrado"));
-
-        teamMemberRepository.save(TeamMember.builder()
-                .team(team)
-                .client(memberClient)
-                .build());
+    public TeamJoinRequestResponse addMemberClient(Long teamId, Integer memberClientUserId, AuthenticatedUser auth) {
+        return teamJoinRequestService.inviteMember(teamId, memberClientUserId, auth);
     }
 
     @Transactional
@@ -237,6 +264,9 @@ public class TeamService {
         if (!selfLeave) {
             requireTeamManager(team, requester, "remover clientes");
         }
+
+        teamRosterService.handleMemberDeparture(team, memberClientUserId, selfLeave, requester);
+        teamJoinRequestService.onMemberLeftTeam(teamId, memberClientUserId);
 
         detachMemberFromTeam(team, memberClientUserId);
         teamMemberRepository.deleteByTeamIdAndClient_UserId(teamId, memberClientUserId);

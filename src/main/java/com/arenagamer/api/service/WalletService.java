@@ -3,6 +3,9 @@ package com.arenagamer.api.service;
 import com.arenagamer.api.dto.response.AdminClientWalletResponse;
 import com.arenagamer.api.dto.response.AdminWalletTransactionResponse;
 import com.arenagamer.api.dto.response.ClientWalletResponse;
+import com.arenagamer.api.dto.response.CreditPurchaseResponse;
+import com.arenagamer.api.dto.response.TransactionResponse;
+import com.arenagamer.api.integration.PerfexClient;
 import com.arenagamer.api.entity.Client;
 import com.arenagamer.api.entity.Contact;
 import com.arenagamer.api.entity.Transaction;
@@ -32,6 +35,7 @@ public class WalletService {
     private final ClientRepository clientRepository;
     private final WalletAccessService walletAccessService;
     private final AuditService auditService;
+    private final PerfexClient perfexClient;
 
     public ClientWalletResponse getClientWalletForContact(Contact contact) {
         walletAccessService.requireViewWallet(contact);
@@ -63,10 +67,14 @@ public class WalletService {
         }
     }
 
-    @Transactional
-    public Transaction depositForContact(Contact contact, BigDecimal amount, String description) {
+    /**
+     * Inicia a compra de créditos. Toda compra passa obrigatoriamente pelo
+     * Perfex: gera uma fatura e retorna a URL de pagamento. O saldo só é
+     * creditado após o pagamento da fatura (hook do módulo Perfex -> adminDeposit).
+     */
+    public CreditPurchaseResponse purchaseCreditsForContact(Contact contact, BigDecimal credits) {
         walletAccessService.requireUseWallet(contact);
-        return deposit(contact.getUserid(), contact, amount, description);
+        return perfexClient.createCreditInvoice(contact.getUserid(), contact.getId(), credits);
     }
 
     @Transactional
@@ -192,10 +200,12 @@ public class WalletService {
         }
     }
 
-    public Page<Transaction> getTransactionsForContact(Contact contact, Pageable pageable) {
+    @Transactional(readOnly = true)
+    public Page<TransactionResponse> getTransactionsForContact(Contact contact, Pageable pageable) {
         walletAccessService.requireViewWallet(contact);
         Wallet wallet = getOrCreateWallet(contact.getUserid());
-        return transactionRepository.findByWalletIdOrderByCreatedAtDesc(wallet.getId(), pageable);
+        return transactionRepository.findByWalletIdWithPerformedBy(wallet.getId(), pageable)
+                .map(TransactionResponse::from);
     }
 
     public AdminClientWalletResponse getAdminClientWallet(Integer clientUserId) {

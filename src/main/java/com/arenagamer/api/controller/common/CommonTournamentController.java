@@ -3,6 +3,7 @@ package com.arenagamer.api.controller.common;
 import com.arenagamer.api.dto.request.CreateTournamentRequest;
 import com.arenagamer.api.dto.request.JoinTournamentRequest;
 import com.arenagamer.api.dto.request.UpdateTournamentRequest;
+import com.arenagamer.api.exception.BusinessException;
 import com.arenagamer.api.dto.response.ApiMessages;
 import com.arenagamer.api.dto.response.ApiResponse;
 import com.arenagamer.api.dto.response.ApiResponses;
@@ -11,6 +12,7 @@ import com.arenagamer.api.dto.response.TournamentManagerResponse;
 import com.arenagamer.api.dto.response.TournamentParticipantsResponse;
 import com.arenagamer.api.dto.response.TournamentResponse;
 import com.arenagamer.api.dto.response.TournamentRevenueResponse;
+import com.arenagamer.api.dto.response.TournamentStandingEntryResponse;
 import com.arenagamer.api.entity.Match;
 import com.arenagamer.api.entity.Tournament;
 import com.arenagamer.api.entity.TournamentParticipant;
@@ -176,14 +178,33 @@ public class CommonTournamentController {
     public ResponseEntity<ApiResponse<Void>> generateBracket(@PathVariable String slug) {
         tournamentService.validateOwnership(slug, UserPrincipal.current());
         bracketService.generateBracket(slug);
+        schedulingService.scheduleMatches(slug);
         return ApiResponses.okMessage(ApiMessages.BRACKET_GENERATED);
+    }
+
+    @PostMapping("/{slug}/advance-round")
+    @Operation(summary = "Gerar próxima fase da chave")
+    public ResponseEntity<ApiResponse<List<MatchResponse>>> advanceRound(@PathVariable String slug) {
+        bracketService.advanceToNextRound(slug, UserPrincipal.current());
+        List<MatchResponse> matches = schedulingService.scheduleMatches(slug).stream()
+                .map(MatchResponse::from).toList();
+        return ApiResponses.ok(ApiMessages.ROUND_ADVANCED, matches);
+    }
+
+    @PostMapping("/{slug}/generate-knockout")
+    @Operation(summary = "Gerar mata-mata da fase de grupos")
+    public ResponseEntity<ApiResponse<List<MatchResponse>>> generateKnockout(@PathVariable String slug) {
+        bracketService.generateGroupPlayoffs(slug, UserPrincipal.current());
+        List<MatchResponse> matches = schedulingService.scheduleMatches(slug).stream()
+                .map(MatchResponse::from).toList();
+        return ApiResponses.ok(ApiMessages.KNOCKOUT_GENERATED, matches);
     }
 
     @GetMapping("/{slug}/matches")
     @Operation(summary = "Listar partidas")
     public ResponseEntity<ApiResponse<List<MatchResponse>>> listMatches(@PathVariable String slug) {
         Tournament tournament = tournamentService.getBySlug(slug);
-        List<MatchResponse> matches = matchRepository.findByTournamentId(tournament.getId()).stream()
+        List<MatchResponse> matches = matchRepository.findByTournamentIdWithParticipants(tournament.getId()).stream()
                 .map(MatchResponse::from).toList();
         return ApiResponses.listed(matches);
     }
@@ -204,6 +225,34 @@ public class CommonTournamentController {
         schedulingService.validateReschedulePermission(matchId, UserPrincipal.current());
         Match match = schedulingService.reschedule(matchId, newTime);
         return ApiResponses.updated(ApiMessages.MATCH_RESCHEDULED, MatchResponse.from(match));
+    }
+
+    @GetMapping("/{slug}/standings")
+    @Operation(summary = "Classificação / posições do torneio")
+    public ResponseEntity<ApiResponse<List<TournamentStandingEntryResponse>>> standings(@PathVariable String slug) {
+        return ApiResponses.listed(bracketService.computeStandings(slug));
+    }
+
+    @PostMapping("/{slug}/finalize")
+    @Operation(summary = "Finalizar torneio")
+    public ResponseEntity<ApiResponse<Void>> finalizeTournament(@PathVariable String slug) {
+        bracketService.finalizeTournament(slug, UserPrincipal.current());
+        return ApiResponses.okMessage(ApiMessages.TOURNAMENT_FINALIZED);
+    }
+
+    @PostMapping("/matches/{matchId}/result")
+    @Operation(summary = "Registrar vencedor da partida")
+    public ResponseEntity<ApiResponse<MatchResponse>> recordResult(
+            @PathVariable Long matchId,
+            @RequestParam(required = false) Long winnerParticipantId,
+            @RequestParam Integer homeScore,
+            @RequestParam Integer awayScore,
+            @RequestParam(required = false) String proofUrl) {
+        bracketService.recordResult(
+                matchId, winnerParticipantId, homeScore, awayScore, proofUrl, UserPrincipal.current());
+        Match match = matchRepository.findByIdWithParticipants(matchId)
+                .orElseThrow(() -> BusinessException.notFound("Partida não encontrada"));
+        return ApiResponses.updated(ApiMessages.MATCH_RESULT_RECORDED, MatchResponse.from(match));
     }
 
     @GetMapping("/{slug}/managers")

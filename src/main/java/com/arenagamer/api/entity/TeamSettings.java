@@ -33,4 +33,8 @@ public class TeamSettings {
 
     @Column(name = "max_tournaments_per_client")
     private Integer maxTournamentsPerClient;
+
+    @Column(name = "team_join_ban_days_after_unreplaced_exit", nullable = false)
+    @Builder.Default
+    private Integer teamJoinBanDaysAfterUnreplacedExit = 7;
 }

@@ -20,4 +20,7 @@ public class TeamSettingsRequest {
 
     @Min(1)
     private Integer maxTournamentsPerClient;
+
+    @Min(1)
+    private Integer teamJoinBanDaysAfterUnreplacedExit;
 }
